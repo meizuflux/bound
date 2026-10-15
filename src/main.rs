@@ -1,6 +1,10 @@
+mod templates;
+
 use askama::Template;
 use salvo::prelude::*;
 use salvo::serve_static::StaticDir;
+
+use templates::HtmlTemplate;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -9,10 +13,8 @@ struct IndexTemplate<'a> {
 }
 
 #[handler]
-async fn hello() -> Result<Text<String>, salvo::Error> {
-    let template = IndexTemplate { name: "world" };
-
-    Ok(Text::Html(template.render().unwrap()))
+async fn hello() -> HtmlTemplate<IndexTemplate<'static>> {
+    HtmlTemplate(IndexTemplate { name: "world" })
 }
 
 #[tokio::main]

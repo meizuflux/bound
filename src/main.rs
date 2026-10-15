@@ -1,5 +1,6 @@
 use askama::Template;
 use salvo::prelude::*;
+use salvo::serve_static::StaticDir;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -22,8 +23,9 @@ async fn main() {
     // Bind server to port 8000
     let acceptor = TcpListener::new("0.0.0.0:8000").bind().await;
 
-    // Render the greeting at /.
-    let router = Router::new().get(hello);
+    let router = Router::new()
+        .push(Router::with_path("/").get(hello))
+        .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));
 
     // Print router structure for debugging
     println!("{router:?}");

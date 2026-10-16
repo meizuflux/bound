@@ -1,4 +1,6 @@
 mod auth;
+mod mail;
+mod schools;
 mod templates;
 
 use askama::Template;

@@ -2,6 +2,7 @@ set dotenv-load
 
 db_name := "bound-postgres"
 db_volume := "bound-postgres-data"
+mail_name := "bound-mailpit"
 
 [private]
 default:
@@ -65,3 +66,27 @@ admin-grant email:
 [positional-arguments]
 admin-revoke email:
     @printf '%s\n' "UPDATE users SET is_admin = false WHERE email = lower(btrim(:'email')) RETURNING email, is_admin;" | container exec -i '{{ db_name }}' psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --set=ON_ERROR_STOP=1 --set=email="$1"
+
+# Create Mailpit once (SMTP 1025, inbox 8025).
+mail-init:
+    container create --name '{{ mail_name }}' --memory 512M \
+        --publish 127.0.0.1:1025:1025 --publish 127.0.0.1:8025:8025 \
+        docker.io/axllent/mailpit:latest
+
+# Start the local email inbox.
+mail-up:
+    container start '{{ mail_name }}'
+
+# Stop the local email inbox.
+mail-down:
+    container stop '{{ mail_name }}'
+
+# Stop mailpit and Postgres
+stop-containers: mail-down db-down
+
+# Start mailpit and Postgres
+start-containers: mail-up db-up
+
+# Run all tests
+test:
+    cargo test

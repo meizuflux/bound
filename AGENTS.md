@@ -37,7 +37,26 @@ Tailwind watches CSS separately.
   checked on POST requests; HTTPS enables Secure cookies.
 - SQLx embeds migrations from `migrations/` and applies them at startup.
   `build.rs` tells Cargo to rebuild when the migration directory changes.
-- Email verification and university email restrictions are not implemented yet.
+- Sign-up accepts any login email. The authenticated user then enters a separate
+  school email; `src/schools.rs` maps schools to exact email domains.
+- Sessions exist before school verification so users can complete onboarding.
+  Account and admin access require a supported, verified school email. The
+  login email stays separate; each school email can be linked to one account.
+  Existing Duke verification is preserved by the school-email migration.
+- Verification links expire after 30 minutes and are single-use. Store only
+  token hashes alongside the intended user, school email, and school. GET shows
+  an HTMX form that submits on load; POST verifies without changing the email
+  tab's session and says it can be closed. Resends replace the old link and
+  have a one-minute cooldown.
+- Auth forms use HTMX 4 with HTML fragments for updates and `HX-Redirect` for
+  navigation. Keep normal form submissions working too.
+- The waiting page polls `/auth/school/status` every two seconds using the
+  current session. Pending polls return 204; verification redirects the original
+  page to the account. Expired links stop polling and show the school-email form.
+- `src/mail.rs` sends through local Mailpit (SMTP `127.0.0.1:1025`, inbox
+  `http://localhost:8025`). Use the justfile for its Apple container lifecycle.
+  `SMTP_HOST`, `SMTP_PORT`, and `MAIL_FROM` have local defaults; no real email
+  service or SMTP authentication/TLS is configured.
 - Users default to `is_admin = false`; manage admin access by email through the
   justfile. The account must already exist; commands return the updated row.
 - `/admin` uses `auth::require_admin`. Apply this hoop to future admin routers;

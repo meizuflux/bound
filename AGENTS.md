@@ -25,9 +25,19 @@
 
 All applicable commands exist in the `justfile`.
 
-The backend runs through Bacon, which rebuilds and restarts on Rust and Askama
-template changes. `bacon.toml` adds `templates/` to its watched paths. Tailwind
-watches CSS separately.
+The backend runs through Bacon, which rebuilds and restarts on codebase changes. 
+Tailwind watches CSS separately.
+
+## Authentication
+
+- `src/auth.rs` handles email/password sign-up, sign-in, account, and sign-out.
+- Passwords use salted Argon2id; opaque session tokens are stored as SHA-256
+  hashes in Postgres and expire after 30 days. Cookies are HttpOnly and SameSite=Lax.
+- `APP_URL` is the exact application origin (default `http://localhost:8000`),
+  checked on POST requests; HTTPS enables Secure cookies.
+- SQLx embeds migrations from `migrations/` and applies them at startup.
+  `build.rs` tells Cargo to rebuild when the migration directory changes.
+- Email verification and university email restrictions are not implemented yet.
 
 ## Local Postgres
 

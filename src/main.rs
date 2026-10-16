@@ -1,3 +1,4 @@
+mod auth;
 mod templates;
 
 use askama::Template;
@@ -39,13 +40,17 @@ async fn run() {
         .await
         .expect("Failed to connect to Postgres");
     tracing::info!("Connected to Postgres");
+    sqlx::migrate!().run(&pool).await.expect("Failed to migrate database");
+    let auth = auth::Auth::from_env();
 
     // Bind server to port 8000
     let acceptor = TcpListener::new("0.0.0.0:8000").bind().await;
 
     let router = Router::new()
         .hoop(affix_state::inject(pool))
+        .hoop(affix_state::inject(auth))
         .get(index)
+        .push(auth::routes())
         .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));
 
     // Print router structure for debugging

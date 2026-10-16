@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block title %}{{ title }} — Bound{% endblock %}
+{% block content %}
+<section class="w-full max-w-sm px-6 py-16">
+  <h1 class="text-3xl font-semibold tracking-tight">{{ title }}</h1>
+  {% if !message.is_empty() %}<p class="mt-4 text-muted" role="status">{{ message }}</p>{% endif %}
+  {% if mode == "signup" || mode == "signin" %}
+  <form method="post" action="/auth/{{ mode }}" class="mt-6 space-y-4">
+    <label class="block">Email
+      <input name="email" type="email" autocomplete="email" required maxlength="254" class="mt-1 block w-full rounded border border-muted/40 bg-white p-3">
+    </label>
+    <label class="block">Password
+      <input name="password" type="password" autocomplete="{% if mode == "signup" %}new-password{% else %}current-password{% endif %}" required minlength="12" maxlength="128" class="mt-1 block w-full rounded border border-muted/40 bg-white p-3">
+    </label>
+    <button class="w-full rounded bg-ink p-3 text-white">{{ title }}</button>
+  </form>
+  <p class="mt-5 text-sm text-muted">
+    {% if mode == "signup" %}Already registered? <a href="/auth/signin" class="underline">Sign in</a>
+    {% else %}New here? <a href="/auth/signup" class="underline">Create an account</a>{% endif %}
+  </p>
+  {% else if mode == "account" %}
+  <form method="post" action="/auth/signout" class="mt-6">
+    <button class="underline">Sign out</button>
+  </form>
+  {% else %}
+  <a href="/auth/signin" class="mt-6 inline-block underline">Sign in</a>
+  {% endif %}
+</section>
+{% endblock %}

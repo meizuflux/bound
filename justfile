@@ -11,9 +11,9 @@ default:
 [parallel]
 dev: run watch-css
 
-# Run the Rust backend
+# Watch, rebuild, and restart the Rust backend.
 run: assets
-    cargo run
+    PATH="$HOME/.cargo/bin:$PATH" bacon --headless run-long
 
 # Copy HTMX into the public assets.
 assets:

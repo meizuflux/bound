@@ -1,6 +1,8 @@
 ## Stack and structure
 
 - Askama templates live in `templates/`
+- `templates/layout.html` contains the shared page shell; `templates/index.html`
+  extends it for the Bound landing page.
 - `src/templates.rs` provides `HtmlTemplate<T>`, the local Salvo response adapter.
   Return `HtmlTemplate(template)` from HTML handlers. It sets the HTML content
   type and logs rendering failures before returning HTTP 500.
@@ -21,10 +23,11 @@
 
 ## Commands
 
-All applicable commands exist in the `justfile`. Run them from the repository root.
+All applicable commands exist in the `justfile`.
 
-CSS updates are served from disk; Askama template changes require rebuilding
-and restarting Rust.
+The backend runs through Bacon, which rebuilds and restarts on Rust and Askama
+template changes. `bacon.toml` adds `templates/` to its watched paths. Tailwind
+watches CSS separately.
 
 ## Local Postgres
 

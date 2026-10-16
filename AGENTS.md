@@ -10,9 +10,14 @@
   Startup connects using `DATABASE_URL`; `affix_state::inject` makes the pool
   available to handlers through `Depot`. Reuse that pool.
 - Bun manages frontend dependencies and the Tailwind CLI
+- HTMX 4 is installed through Bun and copied to `public/compiled/js/htmx.min.js` by the
+  justfile. Use `hx-*` attributes in templates and return HTML fragments through
+  `HtmlTemplate<T>` from Salvo routes. Shared fragments live in `templates/partials/`.
+- In HTMX 4, inherited attributes need an explicit `:inherited` suffix; event
+  names use the `htmx:phase:action` format.
 - `assets/css/app.css` imports Tailwind and scans `templates/`.
-- Tailwind generates `public/css/app.css`; Salvo serves `public/` at `/public/`.
-  Generated CSS, `node_modules/`, and `target/` are ignored by Git.
+- Tailwind generates `public/compiled/css/app.css`; Salvo serves `public/` at `/public/`.
+  Generated assets belong in the ignored `public/compiled/` directory.
 
 ## Commands
 

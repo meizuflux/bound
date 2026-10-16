@@ -12,16 +12,21 @@ default:
 dev: run watch-css
 
 # Run the Rust backend
-run:
+run: assets
     cargo run
+
+# Copy HTMX into the public assets.
+assets:
+    mkdir -p public/compiled/js
+    cp node_modules/htmx.org/dist/htmx.min.js public/compiled/js/htmx.min.js
 
 # Build and watch Tailwind CSS.
 watch-css:
-    bunx --bun @tailwindcss/cli -i ./assets/css/app.css -o ./public/css/app.css --watch
+    bunx --bun @tailwindcss/cli -i ./assets/css/app.css -o ./public/compiled/css/app.css --watch
 
 # Build minified CSS and the release binary.
-build:
-    bunx --bun @tailwindcss/cli -i ./assets/css/app.css -o ./public/css/app.css --minify
+build: assets
+    bunx --bun @tailwindcss/cli -i ./assets/css/app.css -o ./public/compiled/css/app.css --minify
     cargo build --release
 
 # Create the database container and volume once.

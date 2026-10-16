@@ -1,6 +1,6 @@
 /target
 /node_modules
-/public/css/app.css
+/public/compiled/
 .env
 .env.*
 !.env.example

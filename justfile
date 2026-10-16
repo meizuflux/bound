@@ -3,8 +3,26 @@ set dotenv-load
 db_name := "bound-postgres"
 db_volume := "bound-postgres-data"
 
+[private]
 default:
     @just --list
+
+# Run the backend and the Tailwind watcher together.
+[parallel]
+dev: run watch-css
+
+# Run the Rust backend
+run:
+    cargo run
+
+# Build and watch Tailwind CSS.
+watch-css:
+    bunx --bun @tailwindcss/cli -i ./assets/css/app.css -o ./public/css/app.css --watch
+
+# Build minified CSS and the release binary.
+build:
+    bunx --bun @tailwindcss/cli -i ./assets/css/app.css -o ./public/css/app.css --minify
+    cargo build --release
 
 # Create the database container and volume once.
 db-init:

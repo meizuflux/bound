@@ -9,24 +9,11 @@ use templates::HtmlTemplate;
 
 #[derive(Template)]
 #[template(path = "index.html")]
-struct IndexTemplate<'a> {
-    name: &'a str,
-}
-
-#[derive(Template)]
-#[template(path = "partials/greeting.html")]
-struct GreetingTemplate<'a> {
-    name: &'a str,
-}
+struct IndexTemplate;
 
 #[handler]
-async fn hello() -> HtmlTemplate<IndexTemplate<'static>> {
-    HtmlTemplate(IndexTemplate { name: "world" })
-}
-
-#[handler]
-async fn greeting() -> HtmlTemplate<GreetingTemplate<'static>> {
-    HtmlTemplate(GreetingTemplate { name: "HTMX" })
+async fn index() -> HtmlTemplate<IndexTemplate> {
+    HtmlTemplate(IndexTemplate)
 }
 
 fn main() -> Result<(), dotenvy::Error> {
@@ -58,8 +45,7 @@ async fn run() {
 
     let router = Router::new()
         .hoop(affix_state::inject(pool))
-        .get(hello)
-        .push(Router::with_path("greeting").get(greeting))
+        .get(index)
         .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));
 
     // Print router structure for debugging

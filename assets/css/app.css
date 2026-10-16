@@ -1,1 +1,7 @@
 @import "tailwindcss" source("../../templates");
+
+@theme {
+  --color-paper: #faf9f6;
+  --color-ink: #203b34;
+  --color-muted: #667168;
+}

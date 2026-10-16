@@ -1,17 +1,10 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello, world!</title>
-    <link rel="stylesheet" href="/public/compiled/css/app.css">
-    <script src="/public/compiled/js/htmx.min.js" defer></script>
-  </head>
-  <body class="min-h-screen bg-slate-50 p-8 text-slate-900">
-    {% include "partials/greeting.html" %}
-    <button type="button" hx-get="/greeting" hx-target="#greeting" hx-swap="outerHTML"
-      class="mt-4 rounded bg-slate-900 px-4 py-2 text-white">
-      Say hello with HTMX
-    </button>
-  </body>
-</html>
+{% extends "layout.html" %}
+
+{% block content %}
+<section class="mx-auto max-w-4xl px-6 py-20 text-center">
+  <h1 class="text-4xl font-semibold tracking-tight sm:text-6xl">See who's on your flight.</h1>
+  <p class="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+    Heading home for break or back to campus? Add your flight number and find other students on the same plane.
+  </p>
+</section>
+{% endblock %}

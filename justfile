@@ -55,3 +55,13 @@ db-logs:
 [positional-arguments]
 db-psql *args:
     container exec -it '{{ db_name }}' psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"
+
+# Grant admin access to an existing account by email.
+[positional-arguments]
+admin-grant email:
+    @printf '%s\n' "UPDATE users SET is_admin = true WHERE email = lower(btrim(:'email')) RETURNING email, is_admin;" | container exec -i '{{ db_name }}' psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --set=ON_ERROR_STOP=1 --set=email="$1"
+
+# Revoke admin access by email.
+[positional-arguments]
+admin-revoke email:
+    @printf '%s\n' "UPDATE users SET is_admin = false WHERE email = lower(btrim(:'email')) RETURNING email, is_admin;" | container exec -i '{{ db_name }}' psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --set=ON_ERROR_STOP=1 --set=email="$1"

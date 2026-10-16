@@ -38,6 +38,12 @@ Tailwind watches CSS separately.
 - SQLx embeds migrations from `migrations/` and applies them at startup.
   `build.rs` tells Cargo to rebuild when the migration directory changes.
 - Email verification and university email restrictions are not implemented yet.
+- Users default to `is_admin = false`; manage admin access by email through the
+  justfile. The account must already exist; commands return the updated row.
+- `/admin` uses `auth::require_admin`. Apply this hoop to future admin routers;
+  it loads the current user and permissions from Postgres on each request and
+  stores `CurrentUser` in Depot. Guests are redirected to sign-in; non-admins
+  receive HTTP 403. Role changes apply to existing sessions immediately.
 
 ## Local Postgres
 

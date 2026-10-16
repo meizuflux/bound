@@ -44,6 +44,56 @@ pub fn routes() -> Router {
         .push(Router::with_path("signout").post(signout))
 }
 
+pub fn admin_routes() -> Router {
+    Router::with_path("admin").hoop(protect).hoop(require_admin).get(admin)
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CurrentUser {
+    pub id: i64,
+    pub email: String,
+    pub is_admin: bool,
+}
+
+async fn current_user(req: &Request, depot: &Depot) -> Result<Option<CurrentUser>, StatusError> {
+    let Some(cookie) = req.cookie(SESSION_COOKIE) else { return Ok(None); };
+    sqlx::query_as(
+        "SELECT users.id, users.email, users.is_admin FROM sessions \
+         JOIN users ON users.id = sessions.user_id \
+         WHERE sessions.token_hash = $1 AND sessions.expires_at > now()")
+        .bind(token_hash(cookie.value()))
+        .fetch_optional(depot.get_typed::<PgPool>().unwrap())
+        .await.map_err(internal)
+}
+
+/// Apply to an admin router and its children; handlers can read CurrentUser from Depot.
+#[handler]
+pub async fn require_admin(req: &mut Request, depot: &mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+    match current_user(req, depot).await {
+        Ok(Some(user)) if user.is_admin => {
+            depot.insert_typed(user);
+            return;
+        }
+        Ok(Some(_)) => { res.render(StatusError::forbidden()); }
+        Ok(None) => { res.render(Redirect::other("/auth/signin")); }
+        Err(error) => { res.render(error); }
+    }
+    ctrl.skip_rest();
+}
+
+#[derive(Template)]
+#[template(path = "admin.html")]
+struct AdminTemplate {
+    user_id: i64,
+    email: String,
+}
+
+#[handler]
+async fn admin(depot: &mut Depot) -> HtmlTemplate<AdminTemplate> {
+    let user = depot.get_typed::<CurrentUser>().unwrap();
+    HtmlTemplate(AdminTemplate { user_id: user.id, email: user.email.clone() })
+}
+
 #[derive(Template)]
 #[template(path = "auth.html")]
 struct AuthTemplate<'a> {
@@ -194,13 +244,8 @@ async fn signin(req: &mut Request, depot: &mut Depot, res: &mut Response) -> Res
 
 #[handler]
 async fn account(req: &mut Request, depot: &mut Depot, res: &mut Response) -> Result<(), StatusError> {
-    let mut email: Option<String> = None;
-    if let Some(cookie) = req.cookie(SESSION_COOKIE) {
-        email = sqlx::query_scalar("SELECT users.email FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = $1 AND sessions.expires_at > now()")
-            .bind(token_hash(cookie.value())).fetch_optional(depot.get_typed::<PgPool>().unwrap()).await.map_err(internal)?;
-    }
-    match email {
-        Some(email) => page(res, "account", &email),
+    match current_user(req, depot).await? {
+        Some(user) => page(res, "account", &user.email),
         None => { res.render(Redirect::other("/auth/signin")); }
     }
     Ok(())
@@ -344,6 +389,53 @@ mod tests {
         assert_ne!(token, new_token());
         assert_ne!(token_hash(&token), token);
         assert_eq!(token_hash(&token), token_hash(&token));
+    }
+
+    #[sqlx::test]
+    async fn admin_permissions_follow_database_changes_and_session_expiry(pool: PgPool) {
+        let app = Service::new(Router::new()
+            .hoop(affix_state::inject(pool.clone()))
+            .hoop(affix_state::inject(Auth { origin: "http://localhost:8000".into() }))
+            .push(admin_routes()));
+        let user_id: i64 = sqlx::query_scalar(
+            "INSERT INTO users (email, password_hash) VALUES ('user@example.com', 'unused') RETURNING id")
+            .fetch_one(&pool).await.unwrap();
+        let is_admin: bool = sqlx::query_scalar("SELECT is_admin FROM users WHERE id = $1")
+            .bind(user_id).fetch_one(&pool).await.unwrap();
+        assert!(!is_admin);
+        let token = new_token();
+        sqlx::query("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval '1 day')")
+            .bind(token_hash(&token)).bind(user_id).execute(&pool).await.unwrap();
+        let cookie = format!("{SESSION_COOKIE}={token}");
+
+        let guest = TestClient::get("http://localhost:8000/admin").send(&app).await;
+        assert_eq!(guest.status_code, Some(StatusCode::SEE_OTHER));
+        assert_eq!(guest.headers()["location"], "/auth/signin");
+        let forged = TestClient::get("http://localhost:8000/admin")
+            .add_header("cookie", "bound_session=forged; is_admin=true", true).send(&app).await;
+        assert_eq!(forged.status_code, Some(StatusCode::SEE_OTHER));
+
+        // The same session sees grants and revocations without signing in again.
+        for (is_admin, expected) in [
+            (false, StatusCode::FORBIDDEN),
+            (true, StatusCode::OK),
+            (false, StatusCode::FORBIDDEN),
+        ] {
+            sqlx::query("UPDATE users SET is_admin = $1 WHERE id = $2")
+                .bind(is_admin).bind(user_id).execute(&pool).await.unwrap();
+            let response = TestClient::get("http://localhost:8000/admin")
+                .add_header("cookie", &cookie, true).send(&app).await;
+            assert_eq!(response.status_code, Some(expected));
+            assert_eq!(response.headers()["cache-control"], "no-store");
+        }
+
+        sqlx::query("UPDATE users SET is_admin = true WHERE id = $1")
+            .bind(user_id).execute(&pool).await.unwrap();
+        sqlx::query("UPDATE sessions SET expires_at = now() - interval '1 second'")
+            .execute(&pool).await.unwrap();
+        let expired = TestClient::get("http://localhost:8000/admin")
+            .add_header("cookie", &cookie, true).send(&app).await;
+        assert_eq!(expired.status_code, Some(StatusCode::SEE_OTHER));
     }
 
     #[test]

@@ -51,6 +51,7 @@ async fn run() {
         .hoop(affix_state::inject(auth))
         .get(index)
         .push(auth::routes())
+        .push(auth::admin_routes())
         .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));
 
     // Print router structure for debugging

@@ -37,22 +37,32 @@ Tailwind watches CSS separately.
   checked on POST requests; HTTPS enables Secure cookies.
 - SQLx embeds migrations from `migrations/` and applies them at startup.
   `build.rs` tells Cargo to rebuild when the migration directory changes.
-- Sign-up accepts any login email. The authenticated user then enters a separate
-  school email; `src/schools.rs` maps schools to exact email domains.
-- Sessions exist before school verification so users can complete onboarding.
-  Account and admin access require a supported, verified school email. The
-  login email stays separate; each school email can be linked to one account.
-  Existing Duke verification is preserved by the school-email migration.
+- Sign-up and sign-in use one email: the user's school email. Reject sign-up
+  unless its exact domain is mapped in `src/schools.rs`; do not accept arbitrary
+  `.edu` addresses or subdomains. Currently only `duke.edu` is supported.
+- Sign-up creates a session and immediately sends verification to that same email;
+  there is no separate school-email onboarding form. Account and admin access
+  require a supported `users.email` and `email_verified_at`. Derive the school
+  from the email rather than storing a second email or school identifier.
+- Migration 0005 makes existing verified school emails the login emails while
+  preserving user IDs, passwords, roles, sessions, and verification timestamps.
+  It aborts on conflicting login ownership or inconsistent verified mappings;
+  resolve those explicitly rather than merging/deleting accounts. Legacy accounts
+  without a verified school address are preserved, not promoted from pending
+  email requests. Unsupported legacy logins must register with a school email.
+- The account email is immutable. Future email-change support must invalidate
+  outstanding verification tokens atomically or restore explicit email binding.
 - Verification links expire after 30 minutes and are single-use. Store only
-  token hashes alongside the intended user, school email, and school. GET shows
+  token hashes alongside the intended user and expiry/cooldown timestamps. GET shows
   an HTMX form that submits on load; POST verifies without changing the email
   tab's session and says it can be closed. Resends replace the old link and
   have a one-minute cooldown.
 - Auth forms use HTMX 4 with HTML fragments for updates and `HX-Redirect` for
   navigation. Keep normal form submissions working too.
-- The waiting page polls `/auth/school/status` every two seconds using the
+- The waiting page polls `/auth/verification/status` every two seconds using the
   current session. Pending polls return 204; verification redirects the original
-  page to the account. Expired links stop polling and show the school-email form.
+  page to the account. Expired links stop polling and offer a resend to the same
+  school email. Unverified users can sign out to use a different account.
 - `src/mail.rs` sends through local Mailpit (SMTP `127.0.0.1:1025`, inbox
   `http://localhost:8025`). Use the justfile for its Apple container lifecycle.
   `SMTP_HOST`, `SMTP_PORT`, and `MAIL_FROM` have local defaults; no real email

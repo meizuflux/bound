@@ -9,6 +9,10 @@ use sqlx::PgPool;
 
 use crate::{schools, templates::HtmlTemplate};
 
+mod views;
+
+use views::{AuthView, CredentialsForm};
+
 const SESSION_COOKIE: &str = "bound_session";
 
 #[derive(Clone)]
@@ -136,34 +140,6 @@ async fn admin(depot: &mut Depot) -> HtmlTemplate<AdminTemplate> {
     })
 }
 
-#[derive(Default)]
-struct AuthForm<'a> {
-    email: &'a str,
-    email_error: &'a str,
-    password_error: &'a str,
-    error: &'a str,
-}
-
-#[derive(Template)]
-#[template(path = "auth.html")]
-struct AuthTemplate<'a> {
-    title: &'a str,
-    mode: &'a str,
-    message: &'a str,
-    token: &'a str,
-    form: AuthForm<'a>,
-}
-
-#[derive(Template)]
-#[template(path = "auth.html", block = "content")]
-struct AuthFragment<'a> {
-    title: &'a str,
-    mode: &'a str,
-    message: &'a str,
-    token: &'a str,
-    form: AuthForm<'a>,
-}
-
 fn is_htmx(req: &Request) -> bool {
     req.headers()
         .get("hx-request")
@@ -180,55 +156,9 @@ fn redirect(req: &Request, res: &mut Response, path: &'static str) {
     }
 }
 
-fn page(req: &Request, res: &mut Response, mode: &str, message: &str) {
-    render_page(req, res, mode, message, "");
-}
-
-fn render_page(req: &Request, res: &mut Response, mode: &str, message: &str, token: &str) {
-    render_auth_page(req, res, mode, message, token, AuthForm::default());
-}
-
-fn signup_error(req: &Request, res: &mut Response, status: StatusCode, form: AuthForm<'_>) {
+fn signup_error(req: &Request, res: &mut Response, status: StatusCode, form: CredentialsForm<'_>) {
     res.status_code(status);
-    render_auth_page(req, res, "signup", "", "", form);
-}
-
-fn render_auth_page(
-    req: &Request,
-    res: &mut Response,
-    mode: &str,
-    message: &str,
-    token: &str,
-    form: AuthForm<'_>,
-) {
-    let title = match mode {
-        "signup" => "Create an account",
-        "signin" => "Sign in",
-        "pending" => "Check your school inbox",
-        "unverified" => "Verify your school email",
-        "unsupported" => "School email required",
-        "verify" => "Verify your school email",
-        "verified" => "School email verified",
-        "invalid" => "Unable to verify this email",
-        _ => "Your account",
-    };
-    if is_htmx(req) {
-        res.render(HtmlTemplate(AuthFragment {
-            title,
-            mode,
-            message,
-            token,
-            form,
-        }));
-    } else {
-        res.render(HtmlTemplate(AuthTemplate {
-            title,
-            mode,
-            message,
-            token,
-            form,
-        }));
-    }
+    views::Signup::new(form).show(req, res);
 }
 
 #[handler]
@@ -250,20 +180,15 @@ async fn protect(req: &mut Request, depot: &mut Depot, res: &mut Response, ctrl:
 
 #[handler]
 async fn signup_form(req: &mut Request, res: &mut Response) {
-    page(
-        req,
-        res,
-        "signup",
-        &format!(
-            "Use your school email and a password with at least 12 characters. Currently supporting {}.",
-            schools::supported_names()
-        ),
-    );
+    views::Signup::new(CredentialsForm::default()).show(req, res);
 }
 
 #[handler]
 async fn signin_form(req: &mut Request, res: &mut Response) {
-    page(req, res, "signin", "");
+    views::Signin {
+        form: CredentialsForm::default(),
+    }
+    .show(req, res);
 }
 
 fn normalize_email(email: &str) -> Option<String> {
@@ -340,7 +265,7 @@ async fn signup(req: &mut Request, depot: &mut Depot, res: &mut Response) {
             req,
             res,
             StatusCode::BAD_REQUEST,
-            AuthForm {
+            CredentialsForm {
                 email: &submitted_email,
                 email_error: "Please enter a valid school email address.",
                 ..Default::default()
@@ -353,7 +278,7 @@ async fn signup(req: &mut Request, depot: &mut Depot, res: &mut Response) {
             req,
             res,
             StatusCode::BAD_REQUEST,
-            AuthForm {
+            CredentialsForm {
                 email: &submitted_email,
                 email_error: &format!(
                     "Please use an officially supported school email address. Supported domains: {}.",
@@ -369,7 +294,7 @@ async fn signup(req: &mut Request, depot: &mut Depot, res: &mut Response) {
             req,
             res,
             StatusCode::BAD_REQUEST,
-            AuthForm {
+            CredentialsForm {
                 email: &submitted_email,
                 password_error: "Use a password between 12 and 128 characters.",
                 ..Default::default()
@@ -383,7 +308,7 @@ async fn signup(req: &mut Request, depot: &mut Depot, res: &mut Response) {
             req,
             res,
             StatusCode::CONFLICT,
-            AuthForm {
+            CredentialsForm {
                 email: &submitted_email,
                 email_error: "Unable to create this account. Try signing in with this email instead.",
                 ..Default::default()
@@ -391,18 +316,17 @@ async fn signup(req: &mut Request, depot: &mut Depot, res: &mut Response) {
         ),
         Ok(SignupOutcome::DeliveryFailed) => {
             res.status_code(StatusCode::SERVICE_UNAVAILABLE);
-            page(
-                req,
-                res,
-                "unverified",
-                "Your account was created, but we couldn't send the verification email. Please try resending it.",
-            );
+            views::Verification {
+                email: &email,
+                pending: false,
+                error: "Your account was created, but we couldn't send the verification email. Please try resending it.",
+            }.show(req, res);
         }
         Err(_) => signup_error(
             req,
             res,
             StatusCode::INTERNAL_SERVER_ERROR,
-            AuthForm {
+            CredentialsForm {
                 email: &submitted_email,
                 error: "We couldn't complete your signup right now. Please try again, or sign in if you've already registered.",
                 ..Default::default()
@@ -453,12 +377,20 @@ async fn signin(
     depot: &mut Depot,
     res: &mut Response,
 ) -> Result<(), StatusError> {
-    let email = req.form::<String>("email").await.unwrap_or_default();
+    let submitted_email = req.form::<String>("email").await.unwrap_or_default();
     let password = req.form::<String>("password").await.unwrap_or_default();
-    let email = normalize_email(&email).filter(|email| schools::from_email(email).is_some());
+    let email =
+        normalize_email(&submitted_email).filter(|email| schools::from_email(email).is_some());
     let Some(email) = email.filter(|_| password.chars().count() <= 128) else {
         res.status_code(StatusCode::UNAUTHORIZED);
-        page(req, res, "signin", "Email or password is incorrect.");
+        views::Signin {
+            form: CredentialsForm {
+                email: &submitted_email,
+                error: "Email or password is incorrect.",
+                ..Default::default()
+            },
+        }
+        .show(req, res);
         return Ok(());
     };
     let pool = depot.get_typed::<PgPool>().unwrap();
@@ -483,7 +415,14 @@ async fn signin(
         redirect(req, res, "/auth/account");
     } else {
         res.status_code(StatusCode::UNAUTHORIZED);
-        page(req, res, "signin", "Email or password is incorrect.");
+        views::Signin {
+            form: CredentialsForm {
+                email: &submitted_email,
+                error: "Email or password is incorrect.",
+                ..Default::default()
+            },
+        }
+        .show(req, res);
     }
     Ok(())
 }
@@ -496,12 +435,11 @@ async fn account(
 ) -> Result<(), StatusError> {
     match current_user(req, depot).await? {
         Some(user) if user.verified_school().is_some() => {
-            page(
-                req,
-                res,
-                "account",
-                &format!("{} · {}", user.email, user.verified_school().unwrap().name),
-            );
+            views::Account {
+                email: &user.email,
+                school: user.verified_school().unwrap().name,
+            }
+            .show(req, res);
         }
         Some(_) => redirect(req, res, "/auth/verification"),
         None => redirect(req, res, "/auth/signin"),
@@ -540,38 +478,18 @@ async fn show_verification(
         return Ok(());
     }
     if schools::from_email(&user.email).is_none() {
-        page(
-            req,
-            res,
-            "unsupported",
-            "This legacy account doesn't use a supported school email. Sign out and create an account with your school email.",
-        );
+        views::Unsupported.show(req, res);
         return Ok(());
     }
     let pending: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM email_verifications WHERE user_id = $1 AND expires_at > now())")
         .bind(user.id).fetch_one(depot.get_typed::<PgPool>().unwrap()).await.map_err(internal)?;
-    if pending {
-        page(
-            req,
-            res,
-            "pending",
-            &format!(
-                "We sent a verification link to {}. This page will update when you verify.",
-                user.email
-            ),
-        );
-    } else {
-        page(
-            req,
-            res,
-            "unverified",
-            &format!(
-                "Request a new verification link for {}. Your previous link may have expired.",
-                user.email
-            ),
-        );
+    views::Verification {
+        email: &user.email,
+        pending,
+        error: "",
     }
+    .show(req, res);
     Ok(())
 }
 
@@ -649,12 +567,12 @@ async fn resend_verification(
         .is_err()
     {
         res.status_code(StatusCode::SERVICE_UNAVAILABLE);
-        page(
-            req,
-            res,
-            "unverified",
-            "Couldn't send the email. Please try resending it.",
-        );
+        views::Verification {
+            email: &user.email,
+            pending: false,
+            error: "Couldn't send the email. Please try resending it.",
+        }
+        .show(req, res);
         return Ok(());
     }
     show_verification(req, depot, res, &user).await
@@ -687,7 +605,7 @@ async fn verification_status(
 #[handler]
 async fn verification_form(req: &mut Request, res: &mut Response) {
     let token = req.query::<String>("token").unwrap_or_default();
-    render_page(req, res, "verify", "Verifying your school email…", &token);
+    views::Verify { token: &token }.show(req, res);
 }
 
 #[handler]
@@ -722,23 +640,13 @@ async fn verify_email(
         .map_err(internal)?;
         if result.rows_affected() == 1 {
             transaction.commit().await.map_err(internal)?;
-            page(
-                req,
-                res,
-                "verified",
-                "Your school email is verified. You can now close this page and return to Bound.",
-            );
+            views::VerificationResult { success: true }.show(req, res);
             return Ok(());
         }
     }
     transaction.commit().await.map_err(internal)?;
     res.status_code(StatusCode::BAD_REQUEST);
-    page(
-        req,
-        res,
-        "invalid",
-        "This link is invalid, expired, or already used. Return to Bound to request a new one.",
-    );
+    views::VerificationResult { success: false }.show(req, res);
     Ok(())
 }
 

@@ -3,6 +3,15 @@
 - Askama templates live in `templates/`
 - `templates/layout.html` contains the shared page shell; `templates/index.html`
   extends it for the Bound landing page.
+- Auth screens have focused templates in `templates/partials/auth/`: signup,
+  signin, account, verification waiting/resend, link confirmation, link result,
+  and unsupported legacy accounts. Only credential fields and signout controls
+  are shared includes; don't rebuild a global string-mode auth template.
+- `src/auth/views.rs` owns the typed view contexts and `AuthView` response helper.
+  HTMX requests render the requested panel directly; normal requests wrap that
+  same panel with `templates/auth/page.html` and the shared layout. The wrapper's
+  `safe` filter receives only a typed, already-escaped Askama `Template`, never
+  arbitrary HTML or user input. Keep rendering failures in `HtmlTemplate<T>`.
 - `src/templates.rs` provides `HtmlTemplate<T>`, the local Salvo response adapter.
   Return `HtmlTemplate(template)` from HTML handlers. It sets the HTML content
   type and logs rendering failures before returning HTTP 500.

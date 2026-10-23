@@ -1,0 +1,8 @@
+<section id="auth-panel" class="w-full max-w-sm px-6 py-16">
+  <h1 class="text-3xl font-semibold tracking-tight">Verify your school email</h1>
+  <p class="mt-4 text-muted" role="status">Verifying your school email…</p>
+  <form method="post" action="/auth/verify" hx-post="/auth/verify" hx-trigger="load, submit" hx-target="#auth-panel" hx-swap="outerHTML" class="mt-6">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="rounded bg-ink px-5 py-3 text-white">Verify email</button>
+  </form>
+</section>

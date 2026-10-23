@@ -1,0 +1,10 @@
+<section id="auth-panel" class="w-full max-w-sm px-6 py-16">
+  {% if success %}
+  <h1 class="text-3xl font-semibold tracking-tight">School email verified</h1>
+  <p class="mt-4 text-muted" role="status">Your school email is verified. You can now close this page and return to Bound.</p>
+  {% else %}
+  <h1 class="text-3xl font-semibold tracking-tight">Unable to verify this email</h1>
+  <p class="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">This link is invalid, expired, or already used. Return to Bound to request a new one.</p>
+  <a href="/auth/verification" class="mt-6 inline-block underline">Return to Bound</a>
+  {% endif %}
+</section>

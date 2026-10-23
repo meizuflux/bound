@@ -1,0 +1,10 @@
+<section id="auth-panel" class="w-full max-w-sm px-6 py-16">
+  <h1 class="text-3xl font-semibold tracking-tight">Create an account</h1>
+  <p class="mt-4 text-muted" role="status">Use your school email and a password with at least 12 characters. Currently supporting {{ supported_schools }}.</p>
+  <form method="post" action="/auth/signup" hx-post="/auth/signup" hx-target="#auth-panel" hx-swap="outerHTML" class="mt-6 space-y-4">
+    {% let password_autocomplete = "new-password" %}
+    {% include "partials/auth/credential_fields.html" %}
+    <button class="w-full rounded bg-ink p-3 text-white">Create an account</button>
+  </form>
+  <p class="mt-5 text-sm text-muted">Already registered? <a href="/auth/signin" class="underline">Sign in</a></p>
+</section>

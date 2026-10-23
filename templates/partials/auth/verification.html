@@ -1,0 +1,16 @@
+<section id="auth-panel" class="w-full max-w-sm px-6 py-16" {% if pending %}hx-get="/auth/verification/status" hx-trigger="every 2s" hx-target="this" hx-swap="outerHTML"{% endif %}>
+  <h1 class="text-3xl font-semibold tracking-tight">{% if pending %}Check your school inbox{% else %}Verify your school email{% endif %}</h1>
+  {% if !error.is_empty() %}
+  <p class="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">{{ error }}</p>
+  {% else if pending %}
+  <p class="mt-4 text-muted" role="status">We sent a verification link to {{ email }}. This page will update when you verify.</p>
+  {% else %}
+  <p class="mt-4 text-muted" role="status">Request a new verification link for {{ email }}. Your previous link may have expired.</p>
+  {% endif %}
+  <form method="post" action="/auth/resend" hx-post="/auth/resend" hx-target="#auth-panel" hx-swap="outerHTML" class="mt-6 space-y-4">
+    <button class="w-full rounded bg-ink p-3 text-white">Resend verification email</button>
+  </form>
+  <p class="mt-4 text-sm text-muted">Allow a minute between emails. Links expire after 30 minutes.</p>
+  <a href="/auth/verification" class="mt-4 block underline">Check verification status</a>
+  {% include "partials/auth/signout.html" %}
+</section>

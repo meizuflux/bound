@@ -1,0 +1,9 @@
+<section id="auth-panel" class="w-full max-w-sm px-6 py-16">
+  <h1 class="text-3xl font-semibold tracking-tight">Sign in</h1>
+  <form method="post" action="/auth/signin" hx-post="/auth/signin" hx-target="#auth-panel" hx-swap="outerHTML" class="mt-6 space-y-4">
+    {% let password_autocomplete = "current-password" %}
+    {% include "partials/auth/credential_fields.html" %}
+    <button class="w-full rounded bg-ink p-3 text-white">Sign in</button>
+  </form>
+  <p class="mt-5 text-sm text-muted">New here? <a href="/auth/signup" class="underline">Create an account</a></p>
+</section>

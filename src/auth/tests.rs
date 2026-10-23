@@ -222,6 +222,47 @@ async fn forms_reject_unknown_domains_before_database_access_and_enforce_csrf() 
 }
 
 #[tokio::test]
+async fn auth_gets_choose_the_requested_panel_and_only_wrap_normal_requests() {
+    let service = Service::new(
+        Router::new()
+            .hoop(affix_state::inject(test_auth("http://localhost:8000")))
+            .push(routes()),
+    );
+    for (path, action, title) in [
+        ("signup", "/auth/signup", "Create an account"),
+        ("signin", "/auth/signin", "Sign in"),
+        (
+            "verify?token=from-email",
+            "/auth/verify",
+            "Verify your school email",
+        ),
+    ] {
+        for htmx in [false, true] {
+            let mut request = TestClient::get(format!("http://localhost:8000/auth/{path}"));
+            if htmx {
+                request = request.add_header("hx-request", "true", true);
+            }
+            let mut response = request.send(&service).await;
+            assert_eq!(response.status_code, Some(StatusCode::OK));
+            assert_eq!(
+                response.headers()["content-type"],
+                "text/html; charset=utf-8"
+            );
+            assert_eq!(response.headers()["vary"], "HX-Request");
+            let html = response.take_string().await.unwrap();
+            assert_eq!(html.contains("<!doctype html>"), !htmx);
+            assert_eq!(html.matches("id=\"auth-panel\"").count(), 1);
+            assert!(html.contains(title));
+            assert!(html.contains(&format!("hx-post=\"{action}\"")));
+            assert!(!html.contains("&lt;section"));
+            if !htmx {
+                assert!(html.contains(&format!("<title>{title} — Bound</title>")));
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn signup_errors_render_full_pages_for_normal_forms_and_escape_email_values() {
     let service = Service::new(
         Router::new()

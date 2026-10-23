@@ -14,6 +14,17 @@ Verification links last 30 minutes. The waiting page updates automatically after
 verification, and offers resending with a one-minute cooldown. Failed delivery
 and expired links can be retried without creating another account.
 
+## Auth templates
+
+Each auth screen has its own [panel template](<templates/partials/auth/signup.html>)
+and typed context in [auth views](<src/auth/views.rs>). HTMX responses render only
+that panel; regular requests wrap it with the [auth page shell](<templates/auth/page.html>)
+and shared layout. There is no global mode selector or template-block slicing.
+
+Only genuinely reused markup is shared: [credential fields](<templates/partials/auth/credential_fields.html>)
+and [signout controls](<templates/partials/auth/signout.html>). Waiting, expired,
+and delivery-failure states stay together in the [verification panel](<templates/partials/auth/verification.html>).
+
 ## Existing accounts
 
 The [single-email migration](<migrations/0005_single_school_email.sql>) runs at

@@ -1,6 +1,5 @@
 use argon2::password_hash::SaltString;
 use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
-use askama::Template;
 use salvo::http::Method;
 use salvo::http::cookie::{Cookie, SameSite, time::Duration};
 use salvo::prelude::*;
@@ -9,7 +8,7 @@ use sqlx::PgPool;
 
 use crate::{
     schools,
-    templates::{HtmlTemplate, PageView, is_htmx},
+    templates::{PageView, is_htmx},
 };
 
 mod views;
@@ -60,13 +59,6 @@ pub fn routes() -> Router {
                 .post(verify_email),
         )
         .push(Router::with_path("resend").post(resend_verification))
-}
-
-pub fn admin_routes() -> Router {
-    Router::with_path("admin")
-        .hoop(protect)
-        .hoop(require_admin)
-        .get(admin)
 }
 
 #[derive(sqlx::FromRow)]
@@ -144,22 +136,6 @@ pub async fn require_admin(
         }
     }
     ctrl.skip_rest();
-}
-
-#[derive(Template)]
-#[template(path = "admin.html")]
-struct AdminTemplate {
-    user_id: i64,
-    email: String,
-}
-
-#[handler]
-async fn admin(depot: &mut Depot) -> HtmlTemplate<AdminTemplate> {
-    let user = depot.get_typed::<CurrentUser>().unwrap();
-    HtmlTemplate(AdminTemplate {
-        user_id: user.id,
-        email: user.email.clone(),
-    })
 }
 
 fn redirect(req: &Request, res: &mut Response, path: &'static str) {

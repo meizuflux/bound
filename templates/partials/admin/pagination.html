@@ -1,0 +1,8 @@
+<nav aria-label="Pagination" class="mt-5 flex flex-wrap items-center justify-between gap-4 text-sm">
+  <p class="text-muted">Page {{ pagination.page }} · Up to 25 records per page</p>
+  <input type="hidden" name="q" value="{{ pagination.q }}">
+  <div class="flex gap-3">
+    {% if pagination.page > 1 %}<button name="page" value="{{ pagination.page - 1 }}" class="rounded border border-ink/25 px-4 py-2 hover:bg-ink/5">Previous</button>{% endif %}
+    {% if pagination.has_next %}<button name="page" value="{{ pagination.page + 1 }}" class="rounded border border-ink/25 px-4 py-2 hover:bg-ink/5">Next</button>{% endif %}
+  </div>
+</nav>

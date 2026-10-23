@@ -1,0 +1,32 @@
+{% extends "partials/admin/layout.html" %}
+{% block admin_content %}
+<h2 class="text-xl font-semibold">Users</h2>
+<p class="mt-2 text-sm text-muted">Browse accounts and open a user to see their details and recent activity.</p>
+<form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="mt-6 flex flex-wrap items-end gap-3">
+  {% include "partials/admin/search.html" %}
+</form>
+<div class="mt-6 overflow-x-auto rounded-lg border border-ink/15 bg-white">
+  <table class="w-full text-left text-sm">
+    <caption class="sr-only">Users, newest accounts first. Dates are in UTC.</caption>
+    <thead class="border-b border-ink/15 bg-ink/5 text-xs text-muted">
+      <tr><th scope="col" class="px-5 py-3">Email</th><th scope="col" class="px-5 py-3">School</th><th scope="col" class="px-5 py-3">Status</th><th scope="col" class="px-5 py-3">Role</th><th scope="col" class="px-5 py-3 whitespace-nowrap">Joined (UTC)</th></tr>
+    </thead>
+    <tbody class="divide-y divide-ink/10">
+      {% for user in users %}
+      <tr class="hover:bg-ink/3">
+        <td class="px-5 py-4"><a href="/admin/users/{{ user.id }}" hx-get="/admin/users/{{ user.id }}" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="font-medium underline underline-offset-4">{{ user.email }}</a><span class="mt-1 block text-xs text-muted">#{{ user.id }}</span></td>
+        <td class="px-5 py-4">{{ user.school() }}</td>
+        <td class="px-5 py-4 whitespace-nowrap">{{ user.status() }}</td>
+        <td class="px-5 py-4">{{ user.role() }}</td>
+        <td class="px-5 py-4 whitespace-nowrap text-muted">{{ user.created_at }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="px-5 py-12 text-center text-muted">{% if pagination.q.is_empty() %}No users yet.{% else %}No users match this email search.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true">
+  {% include "partials/admin/pagination.html" %}
+</form>
+{% endblock %}

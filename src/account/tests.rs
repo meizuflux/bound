@@ -125,6 +125,7 @@ fn account_values_are_escaped_in_standalone_pages_and_htmx_panels() {
         AccountTemplate {
             email: payload,
             school: payload,
+            is_admin: false,
         }
         .show(&request, &mut response);
         let ResBody::Once(body) = response.take_body() else {

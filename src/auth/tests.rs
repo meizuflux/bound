@@ -1,6 +1,6 @@
 use super::{
-    Auth, SESSION_COOKIE, admin_routes, hash_password, new_token, normalize_email, routes,
-    token_hash, verify_password,
+    Auth, SESSION_COOKIE, hash_password, new_token, normalize_email, routes, token_hash,
+    verify_password,
 };
 use salvo::http::cookie::{SameSite, time::Duration};
 use salvo::prelude::*;
@@ -32,7 +32,7 @@ fn app_with_auth(pool: PgPool, auth: Auth) -> (Service, Arc<Mutex<Vec<String>>>)
             .hoop(affix_state::inject(auth))
             .push(routes())
             .push(crate::account::routes())
-            .push(admin_routes()),
+            .push(crate::admin::routes()),
     );
     (service, outbox)
 }

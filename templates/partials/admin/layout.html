@@ -1,0 +1,10 @@
+<section id="admin-panel" class="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10 sm:py-16">
+  <h1 class="text-3xl font-semibold tracking-tight">Admin</h1>
+  <nav aria-label="Admin" class="mt-7 flex flex-wrap gap-2 border-b border-ink/15 pb-4">
+    <a href="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" {% if nav.users %}aria-current="page"{% endif %} class="rounded px-4 py-2 text-sm font-medium {% if nav.users %}bg-ink text-white{% else %}hover:bg-ink/5{% endif %}">Users</a>
+    <a href="/admin/activity" hx-get="/admin/activity" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" {% if nav.activity %}aria-current="page"{% endif %} class="rounded px-4 py-2 text-sm font-medium {% if nav.activity %}bg-ink text-white{% else %}hover:bg-ink/5{% endif %}">Activity history</a>
+  </nav>
+  <div class="mt-8">
+    {% block admin_content %}{% endblock %}
+  </div>
+</section>

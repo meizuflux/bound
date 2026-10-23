@@ -15,6 +15,7 @@ pub fn routes() -> Router {
 struct AccountTemplate<'a> {
     email: &'a str,
     school: &'a str,
+    is_admin: bool,
 }
 
 impl PageView for AccountTemplate<'_> {
@@ -34,6 +35,7 @@ async fn show(req: &mut Request, depot: &mut Depot, res: &mut Response) {
     AccountTemplate {
         email: &user.email,
         school: school.name,
+        is_admin: user.is_admin,
     }
     .show(req, res);
 }

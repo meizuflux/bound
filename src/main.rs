@@ -1,4 +1,5 @@
 mod account;
+mod admin;
 mod auth;
 mod mail;
 mod schools;
@@ -58,7 +59,7 @@ async fn run() {
         .get(index)
         .push(account::routes())
         .push(auth::routes())
-        .push(auth::admin_routes())
+        .push(admin::routes())
         .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));
 
     // Print router structure for debugging

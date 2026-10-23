@@ -92,6 +92,17 @@ Tailwind watches CSS separately.
   it loads the current user and permissions from Postgres on each request and
   stores `CurrentUser` in Depot. Guests are redirected to sign-in; non-admins
   receive HTTP 403. Role changes apply to existing sessions immediately.
+- `src/admin.rs` owns the read-only admin router: `/admin` and `/admin/users`
+  list users, `/admin/users/{id}` shows account details and recent activity, and
+  `/admin/activity` lists activity.
+  Queries live in `src/admin/data.rs`, typed views in `src/admin/views.rs`, and
+  panels in `templates/partials/admin/`. Lists use email search and 25-row pages.
+- Migration 0006 starts durable `activity_events` tracking through user/session
+  database triggers, including justfile role changes. No past events are backfilled.
+  Events describe the affected account, not the actor; never infer who made a
+  change. Do not log passwords, session tokens, or verification tokens. Future
+  admin writes must keep `auth::protect` and `auth::require_admin` and explicitly
+  record the actor if attribution is needed.
 
 ## Local Postgres
 

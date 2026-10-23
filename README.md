@@ -46,3 +46,17 @@ inconsistent. Resolve those conflicts explicitly before retrying startup. Stop
 old application processes before deploying the incompatible schema change.
 
 Run tests with `just test` with local Postgres running.
+
+## Admin
+
+Verified admins can open `/admin` from their account page. The view-only area
+includes email search and pagination for users and activity, plus individual
+account details.
+Grant or revoke access for an existing account with `just admin-grant EMAIL` or
+`just admin-revoke EMAIL`.
+
+Activity tracking begins with migration 0006. Database triggers record account
+creation/deletion, verification, email and role changes, and session starts/ends,
+including role changes made through the local commands. Existing history is not
+backfilled. Events identify the affected account, not the person who made the
+change; times display in UTC. Passwords and tokens are never included.

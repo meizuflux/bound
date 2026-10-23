@@ -7,16 +7,34 @@ use crate::templates::PageView;
 pub(super) struct Nav {
     pub users: bool,
     pub activity: bool,
+    pub flights: bool,
+    pub corrections: bool,
 }
 
 impl Nav {
     pub const USERS: Self = Self {
         users: true,
         activity: false,
+        flights: false,
+        corrections: false,
     };
     pub const ACTIVITY: Self = Self {
         users: false,
         activity: true,
+        flights: false,
+        corrections: false,
+    };
+    pub const FLIGHTS: Self = Self {
+        users: false,
+        activity: false,
+        flights: true,
+        corrections: false,
+    };
+    pub const CORRECTIONS: Self = Self {
+        users: false,
+        activity: false,
+        flights: false,
+        corrections: true,
     };
 }
 
@@ -83,6 +101,9 @@ pub(super) struct UserPage {
     pub nav: Nav,
     pub user: User,
     pub events: Vec<Event>,
+    pub message: String,
+    pub error: String,
+    pub own_account: bool,
 }
 
 impl PageView for UserPage {
@@ -102,5 +123,93 @@ pub(super) struct ActivityPage {
 impl PageView for ActivityPage {
     fn title(&self) -> &'static str {
         "Activity history · Admin"
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/admin/user_form.html")]
+pub(super) struct UserForm {
+    pub nav: Nav,
+    pub email: String,
+    pub is_admin: bool,
+    pub error: String,
+}
+impl PageView for UserForm {
+    fn title(&self) -> &'static str {
+        "Create user · Admin"
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/admin/user_delete.html")]
+pub(super) struct UserDelete {
+    pub nav: Nav,
+    pub user: User,
+    pub error: String,
+}
+impl PageView for UserDelete {
+    fn title(&self) -> &'static str {
+        "Delete user · Admin"
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/admin/flights.html")]
+pub(super) struct FlightsPage {
+    pub nav: Nav,
+    pub flights: Vec<crate::flights::data::Flight>,
+    pub pagination: Pagination,
+}
+impl PageView for FlightsPage {
+    fn title(&self) -> &'static str {
+        "Flights · Admin"
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/admin/flight_form.html")]
+pub(super) struct FlightForm {
+    pub nav: Nav,
+    pub id: i64,
+    pub revision: i64,
+    pub input: crate::flights::data::FlightInput,
+    pub error: String,
+    pub deleted: bool,
+    pub attendees: i64,
+    pub message: String,
+    pub aliases: Vec<String>,
+    pub merged_into: Option<i64>,
+}
+impl PageView for FlightForm {
+    fn title(&self) -> &'static str {
+        "Flight · Admin"
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/admin/corrections.html")]
+pub(super) struct CorrectionsPage {
+    pub nav: Nav,
+    pub corrections: Vec<crate::flights::data::Correction>,
+    pub pagination: Pagination,
+    pub error: String,
+}
+impl PageView for CorrectionsPage {
+    fn title(&self) -> &'static str {
+        "Flight corrections · Admin"
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/admin/merge.html")]
+pub(super) struct MergePage {
+    pub nav: Nav,
+    pub source: crate::flights::data::Flight,
+    pub target: Option<crate::flights::data::Flight>,
+    pub error: String,
+}
+impl PageView for MergePage {
+    fn title(&self) -> &'static str {
+        "Merge flights · Admin"
     }
 }

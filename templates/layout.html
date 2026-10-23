@@ -7,12 +7,16 @@
     <title>{% block title %}Bound — See who's on your flight{% endblock %}</title>
     <link rel="stylesheet" href="/public/compiled/css/app.css">
     <script src="/public/compiled/js/htmx.min.js" defer></script>
+    <script src="/public/js/app.js" defer></script>
   </head>
   <body class="flex min-h-screen flex-col bg-paper font-sans text-ink antialiased">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10 focus:rounded focus:bg-white focus:p-3">Skip to content</a>
     <header class="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-7 sm:px-10">
       <a href="/" aria-label="Bound home" class="text-2xl font-bold tracking-tight">bound</a>
-      <a href="/account" class="text-sm underline-offset-4 hover:underline">Account</a>
+      <nav aria-label="Main" class="flex items-center gap-5 text-sm">
+        <a href="/flights/mine" class="underline-offset-4 hover:underline">My flights</a>
+        <a href="/account" class="underline-offset-4 hover:underline">Account</a>
+      </nav>
     </header>
 
     <main id="main-content" class="flex flex-1 items-center justify-center">

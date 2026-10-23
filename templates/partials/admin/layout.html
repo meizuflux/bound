@@ -2,6 +2,8 @@
   <h1 class="text-3xl font-semibold tracking-tight">Admin</h1>
   <nav aria-label="Admin" class="mt-7 flex flex-wrap gap-2 border-b border-ink/15 pb-4">
     <a href="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" {% if nav.users %}aria-current="page"{% endif %} class="rounded px-4 py-2 text-sm font-medium {% if nav.users %}bg-ink text-white{% else %}hover:bg-ink/5{% endif %}">Users</a>
+    <a href="/admin/flights" hx-get="/admin/flights" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" {% if nav.flights %}aria-current="page"{% endif %} class="rounded px-4 py-2 text-sm font-medium {% if nav.flights %}bg-ink text-white{% else %}hover:bg-ink/5{% endif %}">Flights</a>
+    <a href="/admin/corrections" hx-get="/admin/corrections" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" {% if nav.corrections %}aria-current="page"{% endif %} class="rounded px-4 py-2 text-sm font-medium {% if nav.corrections %}bg-ink text-white{% else %}hover:bg-ink/5{% endif %}">Corrections</a>
     <a href="/admin/activity" hx-get="/admin/activity" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" {% if nav.activity %}aria-current="page"{% endif %} class="rounded px-4 py-2 text-sm font-medium {% if nav.activity %}bg-ink text-white{% else %}hover:bg-ink/5{% endif %}">Activity history</a>
   </nav>
   <div class="mt-8">

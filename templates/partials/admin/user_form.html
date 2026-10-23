@@ -1,0 +1,13 @@
+{% extends "partials/admin/layout.html" %}
+{% block admin_content %}
+<a href="/admin/users" class="text-sm underline underline-offset-4">Back to users</a>
+<h2 class="mt-5 text-xl font-semibold">Create user</h2>
+<p class="mt-2 max-w-xl text-sm text-muted">Create an account with a school email and an initial password. A verification link is sent to the user; they must verify before accessing flights.</p>
+{% if !error.is_empty() %}<p id="admin-form-error" role="alert" class="mt-5 rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900">{{ error }}</p>{% endif %}
+<form {% if !error.is_empty() %}aria-describedby="admin-form-error"{% endif %} method="post" action="/admin/users" hx-post="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-disable="find button" class="mt-6 max-w-xl space-y-5 rounded-lg border border-ink/15 bg-white p-5">
+<label class="block text-sm font-medium" for="user-email">School email</label><input id="user-email" type="email" name="email" {% if !error.is_empty() && !error.contains("password") %}aria-invalid="true" aria-describedby="admin-form-error"{% endif %} value="{{ email }}" required maxlength="254" autocomplete="off" class="w-full rounded border border-ink/25 px-3 py-2">
+<label class="block text-sm font-medium" for="user-password">Initial password</label><input id="user-password" type="password" name="password" {% if error.contains("password") %}aria-invalid="true" aria-describedby="admin-form-error"{% endif %} required minlength="12" maxlength="128" autocomplete="new-password" class="w-full rounded border border-ink/25 px-3 py-2"><p class="text-xs text-muted">12–128 characters. Share this securely with the account owner.</p>
+<label class="flex items-center gap-3 text-sm"><input type="checkbox" name="is_admin" {% if is_admin %}checked{% endif %}>Grant admin access after verification</label>
+<button class="rounded bg-ink px-4 py-2 text-sm text-white">Create account</button>
+</form>
+{% endblock %}

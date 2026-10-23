@@ -1,0 +1,21 @@
+<section id="flights-panel" class="mx-auto w-full max-w-3xl px-6 py-10 sm:px-10 sm:py-14">
+  {% include "partials/flights/nav.html" %}
+  <h1 class="text-3xl font-semibold tracking-tight">Flight details</h1>
+  <div class="mt-6">{{ summary|safe }}</div>
+  {% if !summary.flight.deleted %}
+  <details id="flight-correction" class="mt-7 rounded-xl border border-ink/15 bg-white/50 p-5" {% if correction_open %}open{% endif %}>
+    <summary class="cursor-pointer font-medium">Something looks wrong</summary>
+    <p class="mt-3 text-sm text-muted">Suggest a correction for review. Everyone stays on the same flight while its details are checked.</p>
+    {% if !error.is_empty() %}<p id="correction-error" role="alert" class="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">{{ error }}</p>{% endif %}
+    {% if summary.flight.joined %}
+    <form action="/flights/{{ summary.flight.id }}/corrections" method="post" hx-disable="find button" hx-post="/flights/{{ summary.flight.id }}/corrections" hx-target="#flights-panel" hx-swap="outerHTML" class="mt-5 space-y-4" {% if !error.is_empty() %}aria-describedby="correction-error"{% endif %}>
+      <input type="hidden" name="revision" value="{{ summary.flight.revision }}">
+      <div><label for="correction-field" class="block text-sm font-medium">What needs correcting?</label><select id="correction-field" name="field" required class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5"><option value="departure_time" {% if correction_field == "departure_time" %}selected{% endif %}>Departure time · currently {{ summary.flight.departure_time }}</option><option value="departure_date" {% if correction_field == "departure_date" %}selected{% endif %}>Departure date · currently {{ summary.flight.departure_date }}</option><option value="flight_number" {% if correction_field == "flight_number" %}selected{% endif %}>Flight number · currently {{ summary.flight.flight_number }}</option><option value="origin" {% if correction_field == "origin" %}selected{% endif %}>Departure airport · currently {{ summary.flight.origin }}</option><option value="destination" {% if correction_field == "destination" %}selected{% endif %}>Arrival airport · currently {{ summary.flight.destination }}</option></select></div>
+      <div><label for="correction-value" class="block text-sm font-medium">Correct value</label><input id="correction-value" name="value" value="{{ correction_value }}" required maxlength="32" aria-describedby="correction-help" class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5"><p id="correction-help" class="mt-1 text-xs text-muted">Time: 24-hour HH:MM in {{ summary.flight.timezone }}. Date: YYYY-MM-DD. Airports: three-letter code. Flight: full number such as AA123.</p></div>
+      <div><label for="correction-reason" class="block text-sm font-medium">Why is this correct? <span class="font-normal text-muted">(optional)</span></label><textarea id="correction-reason" name="reason" maxlength="500" rows="3" placeholder="For example, the scheduled time on my booking is 15:30." class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5">{{ correction_reason }}</textarea><p class="mt-1 text-xs text-muted">This explanation is visible to travelers. Don’t include booking references or personal details.</p></div>
+      <button hx-disable="this" class="rounded bg-ink px-5 py-3 text-sm font-medium text-white disabled:opacity-50">Suggest correction</button>
+    </form>
+    {% else %}<p class="mt-4 text-sm font-medium">Add this flight before suggesting a correction.</p>{% endif %}
+  </details>
+  {% endif %}
+</section>

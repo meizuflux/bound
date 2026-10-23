@@ -846,6 +846,16 @@ async fn migration_preserves_verified_identity_and_never_promotes_pending_addres
     .await
     .unwrap();
     assert_eq!(legacy, ("legacy@example.com".into(), false));
+    // Exercise the current application against all subsequent migrations while
+    // retaining the legacy identity/verification assertions above.
+    for migration in [
+        include_str!("../../migrations/0006_activity_events.sql"),
+        include_str!("../../migrations/0007_flights.sql"),
+        include_str!("../../migrations/0008_activity_attribution.sql"),
+        include_str!("../../migrations/0009_admin_users.sql"),
+    ] {
+        sqlx::raw_sql(migration).execute(&pool).await.unwrap();
+    }
     let (service, _) = app(pool.clone());
     let session = format!("{SESSION_COOKIE}={session_token}");
     assert_eq!(
@@ -949,4 +959,36 @@ async fn migration_rejects_inconsistent_verified_school_mapping(pool: PgPool) {
             .contains("inconsistent verified school emails")
     );
     transaction.rollback().await.unwrap();
+}
+
+#[sqlx::test]
+async fn session_creation_rechecks_suspension_after_credentials_were_checked(pool: PgPool) {
+    let id: i64 = sqlx::query_scalar("INSERT INTO users (email,password_hash,email_verified_at) VALUES ('student@duke.edu','unused',now()) RETURNING id")
+        .fetch_one(&pool).await.unwrap();
+    // Model an admin suspending/revoking after the sign-in credential lookup.
+    sqlx::query("UPDATE users SET suspended_at = now() WHERE id = $1")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let auth = test_auth("http://localhost:8000");
+    let request = Request::new();
+    let mut response = Response::new();
+    let result = super::start_session(&pool, id, &request, &auth, &mut response).await;
+    assert!(result.is_err());
+    assert!(response.cookie(SESSION_COOKIE).is_none());
+    sqlx::query("UPDATE users SET suspended_at = NULL WHERE id = $1")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM sessions WHERE user_id = $1")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        count, 0,
+        "Restoration cannot revive an in-flight sign-in session"
+    );
 }

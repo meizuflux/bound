@@ -1,0 +1,7 @@
+<section id="flights-panel" class="mx-auto w-full max-w-3xl px-6 py-10 sm:px-10 sm:py-14">
+  {% include "partials/flights/nav.html" %}<div class="flex flex-wrap items-center justify-between gap-4"><h1 class="text-3xl font-semibold tracking-tight">My flights</h1><a href="/flights" class="rounded bg-ink px-4 py-2.5 text-sm font-medium text-white">Add a flight</a></div>
+  <p class="mt-3 text-muted">Your upcoming plans, shared with your school community.</p>
+  <div class="mt-7 space-y-4">{% for flight in flights %}{% include "partials/flights/card.html" %}{% endfor %}</div>
+  {% if flights.is_empty() %}<div class="mt-7 rounded-xl border border-dashed border-ink/25 p-7"><h2 class="font-semibold">Where are you headed?</h2><p class="mt-2 text-sm text-muted">Add a flight to see how many people from your school are taking the same trip.</p><a href="/flights" class="mt-4 inline-block underline underline-offset-4">Find your first flight →</a></div>{% endif %}
+  {% if page > 1 || has_next %}<form action="/flights/mine" method="get" class="mt-6 flex gap-4">{% if page > 1 %}<button name="page" value="{{ page - 1 }}" class="underline underline-offset-4">Previous</button>{% endif %}{% if has_next %}<button name="page" value="{{ page + 1 }}" class="underline underline-offset-4">Next</button>{% endif %}</form>{% endif %}
+</section>

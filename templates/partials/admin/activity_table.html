@@ -2,17 +2,18 @@
   <table class="w-full text-left text-sm">
     <caption class="sr-only">Activity, most recently recorded first. Times are in UTC.</caption>
     <thead class="border-b border-ink/15 bg-ink/5 text-xs text-muted">
-      <tr><th scope="col" class="px-5 py-3">Event</th><th scope="col" class="px-5 py-3">Account</th><th scope="col" class="px-5 py-3 whitespace-nowrap">Time (UTC)</th></tr>
+      <tr><th scope="col" class="px-5 py-3">Event</th><th scope="col" class="px-5 py-3">Account</th><th scope="col" class="px-5 py-3">Actor / flight</th><th scope="col" class="px-5 py-3 whitespace-nowrap">Time (UTC)</th></tr>
     </thead>
     <tbody class="divide-y divide-ink/10">
       {% for event in events %}
       <tr>
-        <td class="px-5 py-4 font-medium">{{ event.label() }}</td>
+        <td class="px-5 py-4 font-medium">{{ event.label() }}{% if !event.details.is_empty() %}<p class="mt-1 max-w-sm text-xs font-normal text-muted">{{ event.details }}</p>{% endif %}</td>
         <td class="px-5 py-4">{% match event.user_id %}{% when Some with (id) %}<a href="/admin/users/{{ id }}" hx-get="/admin/users/{{ id }}" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="underline underline-offset-4">{{ event.email }}</a>{% when None %}{{ event.email }}{% endmatch %}</td>
+        <td class="px-5 py-4 text-xs text-muted">{% match event.actor_email %}{% when Some with (email) %}{{ email }}{% when None %}Unattributed{% endmatch %}{% match event.flight_id %}{% when Some with (id) %}<a href="/admin/flights/{{ id }}" class="mt-1 block underline">{% match event.flight_label %}{% when Some with (label) %}{{ label }}{% when None %}Flight #{{ id }}{% endmatch %}</a>{% when None %}{% endmatch %}</td>
         <td class="px-5 py-4 whitespace-nowrap text-muted">{{ event.created_at }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="3" class="px-5 py-12 text-center text-muted">No recorded activity found.</td></tr>
+      <tr><td colspan="4" class="px-5 py-12 text-center text-muted">No recorded activity found.</td></tr>
       {% endfor %}
     </tbody>
   </table>

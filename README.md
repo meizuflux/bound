@@ -49,14 +49,40 @@ Run tests with `just test` with local Postgres running.
 
 ## Admin
 
-Verified admins can open `/admin` from their account page. The view-only area
-includes email search and pagination for users and activity, plus individual
-account details.
+Verified admins can open `/admin` from their account page. It includes user
+creation, role and access management, session revocation, confirmed account
+deletion, flight creation/editing/archive/restore, alternate flight numbers,
+correction review, and duplicate merging. Account emails remain immutable;
+new accounts must verify their school email. Activity history is retained as an
+audit trail. Admins cannot delete or remove access from their own account or
+remove the last eligible administrator.
 Grant or revoke access for an existing account with `just admin-grant EMAIL` or
 `just admin-revoke EMAIL`.
 
 Activity tracking begins with migration 0006. Database triggers record account
 creation/deletion, verification, email and role changes, and session starts/ends,
 including role changes made through the local commands. Existing history is not
-backfilled. Events identify the affected account, not the person who made the
-change; times display in UTC. Passwords and tokens are never included.
+backfilled. Migration 0008 adds actor snapshots, flight references, and change
+details for application mutations. Older events and direct database changes may
+have no known actor; the interface labels these honestly. Times display in UTC.
+Passwords and tokens are never included.
+
+## Shared flights
+
+Verified students can find flights at `/flights`, add a missing flight after a
+review step, and manage their trips at `/flights/mine`. Search updates results
+in place with HTMX, while ordinary links and form submissions remain supported.
+Each shared flight has a permanent ID; departure time is a correctable detail,
+not part of duplicate matching. Only counts from the viewer's school are shown;
+student names and email addresses are not exposed to other travelers.
+
+The first version uses a curated US airport and airline catalog in
+`src/flights/catalog.rs`, not a live airline schedule feed. Times are explicitly
+local to the departure airport and validated against its IANA time zone. Invalid
+or ambiguous daylight-saving times are rejected rather than guessed. Flights
+are community-submitted; check the airline for current travel information.
+
+Travelers can explicitly confirm a flight revision or propose corrections after
+joining. Admin review applies approved changes atomically, rejecting stale edits.
+Joining alone never confirms the schedule. Duplicate merges preserve memberships
+and old links; flight deletion is an archive with restoration available.

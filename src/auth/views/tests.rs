@@ -24,6 +24,7 @@ fn render(view: impl PageView, htmx: bool) -> String {
         panic!("Expected rendered authentication HTML");
     };
     let html = String::from_utf8(body.to_vec()).unwrap();
+    assert!(html.contains(&format!("<title>{title} — Bound</title>")));
     assert_eq!(html.contains("<!doctype html>"), !htmx);
     assert_eq!(html.matches("id=\"auth-panel\"").count(), 1);
     if htmx {

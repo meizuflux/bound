@@ -1,6 +1,6 @@
 {% extends "partials/admin/layout.html" %}
 {% block admin_content %}
-<h2 class="text-xl font-semibold">Users</h2>
+<div class="flex items-center justify-between gap-4"><h2 class="text-xl font-semibold">Users</h2><a href="/admin/users/new" hx-get="/admin/users/new" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="rounded bg-ink px-4 py-2 text-sm text-white">Create user</a></div>
 <p class="mt-2 text-sm text-muted">Browse accounts and open a user to see their details and recent activity.</p>
 <form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="mt-6 flex flex-wrap items-end gap-3">
   {% include "partials/admin/search.html" %}

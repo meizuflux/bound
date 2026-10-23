@@ -24,7 +24,7 @@ pub(crate) async fn record(
     details: &str,
 ) -> Result<(), sqlx::Error> {
     let details: String = details.chars().take(1000).collect();
-    sqlx::query(
+    let result = sqlx::query(
         "INSERT INTO activity_events
             (user_id, email, actor_id, actor_email, flight_id, flight_label, event_type, details)
          SELECT subject.id, COALESCE(subject.email, actor.email), actor.id, actor.email,
@@ -44,6 +44,9 @@ pub(crate) async fn record(
     .bind(details)
     .execute(connection)
     .await?;
+    if result.rows_affected() != 1 {
+        return Err(sqlx::Error::RowNotFound);
+    }
     Ok(())
 }
 

@@ -83,7 +83,8 @@ async fn current_user(req: &Request, depot: &Depot) -> Result<Option<CurrentUser
         "SELECT users.id, users.email, users.is_admin,
          users.email_verified_at IS NOT NULL AS email_verified FROM sessions
          JOIN users ON users.id = sessions.user_id
-         WHERE sessions.token_hash = $1 AND sessions.expires_at > now()",
+         WHERE sessions.token_hash = $1 AND sessions.expires_at > now()
+         AND users.suspended_at IS NULL",
     )
     .bind(token_hash(cookie.value()))
     .fetch_optional(depot.get_typed::<PgPool>().unwrap())
@@ -188,7 +189,7 @@ async fn signin_form(req: &mut Request, res: &mut Response) {
     .show(req, res);
 }
 
-fn normalize_email(email: &str) -> Option<String> {
+pub(crate) fn normalize_email(email: &str) -> Option<String> {
     let email = email.trim().to_lowercase();
     let _: lettre::Address = email.parse().ok()?;
     (email.len() <= 254).then_some(email)
@@ -208,7 +209,7 @@ fn password_hasher() -> Argon2<'static> {
     Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::default())
 }
 
-fn hash_password(password: &str) -> String {
+pub(crate) fn hash_password(password: &str) -> String {
     let mut salt = [0u8; 16];
     getrandom::fill(&mut salt).expect("OS randomness unavailable");
     password_hasher()
@@ -239,6 +240,37 @@ async fn start_session(
 ) -> Result<(), StatusError> {
     let token = new_token();
     let mut transaction = pool.begin().await.map_err(internal)?;
+    // Password verification happens outside the transaction. Recheck access and
+    // lock the user before inserting a session so suspension/revocation cannot
+    // race a successful sign-in and leave a session to reappear after restoration.
+    let old_owner: Option<i64> = if let Some(old) = req.cookie(SESSION_COOKIE) {
+        sqlx::query_scalar("SELECT user_id FROM sessions WHERE token_hash = $1")
+            .bind(token_hash(old.value()))
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(internal)?
+    } else {
+        None
+    };
+    // Account switches lock both users in ID order before touching sessions,
+    // matching the user-before-session order used by revocation and deletion.
+    let users: Vec<(i64, String, bool)> = sqlx::query_as(
+        "SELECT id, email, suspended_at IS NULL FROM users
+         WHERE id = $1 OR id = $2 ORDER BY id FOR SHARE",
+    )
+    .bind(user_id)
+    .bind(old_owner)
+    .fetch_all(&mut *transaction)
+    .await
+    .map_err(internal)?;
+    if !users.iter().any(|(id, email, active)| {
+        *id == user_id && *active && schools::from_email(email).is_some()
+    }) {
+        return Err(StatusError::unauthorized());
+    }
+    crate::audit::set_actor(&mut transaction, user_id)
+        .await
+        .map_err(internal)?;
     if let Some(old) = req.cookie(SESSION_COOKIE) {
         sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
             .bind(token_hash(old.value()))
@@ -391,12 +423,13 @@ async fn signin(
         return Ok(());
     };
     let pool = depot.get_typed::<PgPool>().unwrap();
-    let user: Option<(i64, String)> =
-        sqlx::query_as("SELECT id, password_hash FROM users WHERE email = $1")
-            .bind(email)
-            .fetch_optional(pool)
-            .await
-            .map_err(internal)?;
+    let user: Option<(i64, String)> = sqlx::query_as(
+        "SELECT id, password_hash FROM users WHERE email = $1 AND suspended_at IS NULL",
+    )
+    .bind(email)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal)?;
     let valid = tokio::task::spawn_blocking(move || match user {
         Some((id, hash)) if verify_password(&password, &hash) => Some(id),
         None => {
@@ -431,11 +464,38 @@ async fn signout(
     res: &mut Response,
 ) -> Result<(), StatusError> {
     if let Some(cookie) = req.cookie(SESSION_COOKIE) {
-        sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
-            .bind(token_hash(cookie.value()))
-            .execute(depot.get_typed::<PgPool>().unwrap())
+        let mut transaction = depot
+            .get_typed::<PgPool>()
+            .unwrap()
+            .begin()
             .await
             .map_err(internal)?;
+        let user_id: Option<i64> = sqlx::query_scalar(
+            "SELECT user_id FROM sessions WHERE token_hash = $1 AND expires_at > now()",
+        )
+        .bind(token_hash(cookie.value()))
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(internal)?;
+        if let Some(user_id) = user_id {
+            let locked: Option<i64> =
+                sqlx::query_scalar("SELECT id FROM users WHERE id = $1 FOR SHARE")
+                    .bind(user_id)
+                    .fetch_optional(&mut *transaction)
+                    .await
+                    .map_err(internal)?;
+            if locked.is_some() {
+                crate::audit::set_actor(&mut transaction, user_id)
+                    .await
+                    .map_err(internal)?;
+            }
+        }
+        sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
+            .bind(token_hash(cookie.value()))
+            .execute(&mut *transaction)
+            .await
+            .map_err(internal)?;
+        transaction.commit().await.map_err(internal)?;
     }
     let mut cookie = depot.get_typed::<Auth>().unwrap().cookie(String::new());
     cookie.make_removal();
@@ -519,6 +579,18 @@ async fn send_verification(
         return Err(internal(error));
     }
     Ok(())
+}
+
+/// Send verification for an admin-created account without replacing the
+/// administrator's session or treating the new email as already verified.
+pub(crate) async fn send_account_verification(
+    pool: &PgPool,
+    auth: &Auth,
+    user_id: i64,
+    email: &str,
+) -> Result<(), StatusError> {
+    let school = schools::from_email(email).ok_or_else(StatusError::bad_request)?;
+    send_verification(pool, auth, user_id, email, school).await
 }
 
 #[handler]

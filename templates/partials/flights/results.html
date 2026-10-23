@@ -1,0 +1,14 @@
+<div id="flight-results" aria-live="polite" aria-atomic="true">
+  {% if !error.is_empty() %}<p role="alert" class="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900">{{ error }}</p>{% endif %}
+  {% if searched && error.is_empty() %}
+    <h2 class="text-lg font-semibold">Community flights</h2>
+    <p class="mt-1 text-sm text-muted">Times are shared by travelers. Choose the right route even if a time needs correcting.</p>
+    <div class="mt-4 space-y-3">
+    {% for flight in flights %}{% include "partials/flights/card.html" %}{% endfor %}
+    </div>
+    {% if flights.is_empty() %}<p class="mt-4 rounded-xl border border-dashed border-ink/25 p-6">No flights match yet. You can be the first to add yours.</p>{% endif %}
+    {% if page > 1 || has_next %}<form action="/flights" method="get" hx-disable="find button" hx-get="/flights" hx-target="#flight-results" hx-swap="outerHTML" hx-replace-url="true" class="mt-5 flex gap-4"><input type="hidden" name="number" value="{{ number }}"><input type="hidden" name="date" value="{{ date }}">{% if page > 1 %}<button name="page" value="{{ page - 1 }}" class="underline underline-offset-4">Previous</button>{% endif %}{% if has_next %}<button name="page" value="{{ page + 1 }}" class="underline underline-offset-4">Next</button>{% endif %}</form>{% endif %}
+    <form action="/flights/new" method="get" hx-get="/flights/new" hx-target="#flight-create-slot" hx-swap="innerHTML" hx-disable="find button" class="mt-6"><input type="hidden" name="number" value="{{ number }}"><input type="hidden" name="date" value="{{ date }}"><button class="text-sm font-medium underline underline-offset-4">My flight isn’t listed →</button></form>
+    <div id="flight-create-slot" class="mt-5"></div>
+  {% else if !searched && error.is_empty() %}<p class="text-sm text-muted">Enter a flight number and departure date to get started.</p>{% endif %}
+</div>

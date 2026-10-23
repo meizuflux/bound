@@ -1,0 +1,10 @@
+{% extends "partials/admin/layout.html" %}
+{% block admin_content %}
+<a href="/admin/users/{{ user.id }}" class="text-sm underline underline-offset-4">Back to account</a>
+<h2 class="mt-5 text-xl font-semibold">Delete {{ user.email }}?</h2>
+<p class="mt-3 max-w-xl text-sm leading-relaxed text-muted">This permanently removes the account, sessions, and flight memberships. Shared flights and activity history are preserved. This cannot be undone.</p>
+{% if !error.is_empty() %}<p id="admin-form-error" role="alert" class="mt-5 rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900">{{ error }}</p>{% endif %}
+<form {% if !error.is_empty() %}aria-describedby="admin-form-error"{% endif %} method="post" action="/admin/users/{{ user.id }}/delete" hx-post="/admin/users/{{ user.id }}/delete" hx-target="#admin-panel" hx-swap="outerHTML" hx-disable="find button" class="mt-6 max-w-xl space-y-4">
+<input type="hidden" name="version" value="{{ user.version }}"><label for="confirm-email" class="block text-sm">Type <strong>{{ user.email }}</strong> to confirm</label><input id="confirm-email" name="confirm_email" type="email" required autocomplete="off" class="w-full rounded border border-ink/25 px-3 py-2"><button class="rounded bg-red-800 px-4 py-2 text-sm text-white">Permanently delete account</button>
+</form>
+{% endblock %}

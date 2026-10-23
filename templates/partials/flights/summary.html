@@ -1,0 +1,20 @@
+<div id="flight-summary" {% if flight.pending_corrections > 0 && !flight.deleted %}hx-get="/flights/{{ flight.id }}/status" hx-trigger="every 15s" hx-target="this" hx-swap="outerHTML" hx-sync="this:replace"{% endif %}>
+  {% if !notice.is_empty() %}<p role="status" class="mb-4 rounded border border-ink/15 bg-ink/5 p-4 text-sm">{{ notice }}</p>{% endif %}
+  {% if !error.is_empty() %}<p role="alert" class="mb-4 rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900">{{ error }}</p>{% endif %}
+  {% if flight.deleted %}<p role="status" class="mb-4 rounded border border-ink/20 p-4 text-sm">This shared flight was removed by an admin. You can remove it from your flights and find the correct departure.</p>{% endif %}
+  <article class="rounded-xl border border-ink/15 bg-white/70 p-6">
+    <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-sm font-medium text-muted">{{ flight.flight_number }}</p><h2 class="mt-1 text-2xl font-semibold">{{ flight.origin }} → {{ flight.destination }}</h2></div><span class="rounded-full bg-ink/5 px-3 py-1 text-xs">{% if flight.deleted %}Removed by admin{% else if flight.pending_corrections > 0 %}Details disputed · review pending{% else if flight.confirmations > 0 %}Community confirmed{% else %}Community added{% endif %}</span></div>
+    <dl class="mt-6 grid gap-4 sm:grid-cols-2"><div><dt class="text-sm text-muted">Scheduled departure</dt><dd class="mt-1 font-medium">{{ flight.departure_date }} at {{ flight.departure_time }}</dd></div><div><dt class="text-sm text-muted">Departure time zone</dt><dd class="mt-1 font-medium">{{ flight.timezone }}</dd></div></dl>
+    <p class="mt-4 text-sm text-muted">{{ flight.attendees }} from your school have added this flight. {{ flight.confirmations }} confirmed the current details. Joining does not confirm the schedule.</p>
+    <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-5">
+    {% if flight.joined %}
+      <span class="text-sm font-medium">✓ Added to your flights</span>
+      <form action="/flights/{{ flight.id }}/leave" method="post" hx-disable="find button" hx-post="/flights/{{ flight.id }}/leave" hx-target="#flight-summary" hx-swap="outerHTML"><button hx-disable="this" class="rounded border border-ink/25 px-4 py-2 text-sm disabled:opacity-50">Remove from my flights</button></form>
+      {% if !flight.confirmed && !flight.deleted %}<form action="/flights/{{ flight.id }}/confirm" method="post" hx-disable="find button" hx-post="/flights/{{ flight.id }}/confirm" hx-target="#flight-summary" hx-swap="outerHTML"><input type="hidden" name="revision" value="{{ flight.revision }}"><button hx-disable="this" class="rounded border border-ink/25 px-4 py-2 text-sm disabled:opacity-50">Confirm these details</button></form>{% else if flight.confirmed && !flight.deleted %}<span class="text-xs text-muted">You confirmed this version.</span>{% endif %}
+    {% else if !flight.deleted %}
+      <form action="/flights/{{ flight.id }}/join" method="post" hx-disable="find button" hx-post="/flights/{{ flight.id }}/join" hx-target="#flight-summary" hx-swap="outerHTML"><button hx-disable="this" class="rounded bg-ink px-5 py-3 text-sm font-medium text-white disabled:opacity-50">This is my flight</button></form>
+    {% endif %}
+    </div>
+  </article>
+  {% if !corrections.is_empty() %}<section aria-label="Schedule corrections" class="mt-5 rounded-xl border border-ink/15 p-5"><h3 class="font-semibold">Schedule review</h3><div class="mt-3 space-y-4">{% for correction in corrections %}<article class="border-t border-ink/10 pt-3"><p class="text-xs font-medium uppercase tracking-wide text-muted">{{ correction.field_label() }} · {{ correction.status }}</p><p class="mt-1 text-sm"><span class="text-muted">Listed:</span> {{ correction.current_value }} <span class="mx-1" aria-hidden="true">→</span> <span class="text-muted">Suggested:</span> {{ correction.proposed_value }}</p>{% if !correction.reason.is_empty() %}<p class="mt-2 break-words text-sm">{{ correction.reason }}</p>{% endif %}</article>{% endfor %}</div></section>{% endif %}
+</div>

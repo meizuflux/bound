@@ -1,0 +1,5 @@
+<article id="flight-card-{{ flight.id }}" class="rounded-xl border border-ink/15 bg-white/70 p-5">
+  {% if !notice.is_empty() %}<p role="status" class="mb-4 rounded bg-ink/5 p-3 text-sm">{{ notice }}</p>{% endif %}
+  {% if !error.is_empty() %}<p role="alert" class="mb-4 rounded bg-red-50 p-3 text-sm text-red-900">{{ error }}</p>{% endif %}
+  {% include "partials/flights/card_body.html" %}
+</article>

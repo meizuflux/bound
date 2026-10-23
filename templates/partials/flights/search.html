@@ -1,0 +1,13 @@
+<section id="flights-panel" class="mx-auto w-full max-w-3xl px-6 py-10 sm:px-10 sm:py-14">
+  {% include "partials/flights/nav.html" %}
+  <p class="text-sm font-medium text-muted">A little company, from takeoff to touchdown.</p>
+  <h1 class="mt-2 text-3xl font-semibold tracking-tight">Find your flight</h1>
+  <p class="mt-3 max-w-xl text-muted">Search the flight number on your ticket and the date you depart. Find flights added by the community, then add yours.</p>
+  <form action="/flights" method="get" hx-disable="find button" hx-get="/flights" hx-target="#flight-results" hx-swap="outerHTML" hx-replace-url="true" hx-sync="this:replace" hx-trigger="submit, input changed delay:400ms from:#flight-search-number, change from:#flight-search-date" class="mt-7 grid gap-4 rounded-xl border border-ink/15 bg-white/70 p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+    <div><label for="flight-search-number" class="block text-sm font-medium">Flight number</label><input id="flight-search-number" name="number" value="{{ number }}" required maxlength="12" placeholder="AA123" autocomplete="off" class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5 uppercase" aria-describedby="number-help"><p id="number-help" class="mt-1 text-xs text-muted">Include the airline code, e.g. AA123.</p></div>
+    <div><label for="flight-search-date" class="block text-sm font-medium">Departure date</label><input id="flight-search-date" type="date" name="date" value="{{ date }}" required class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5"><p class="mt-1 text-xs text-muted">The date at your departure airport.</p></div>
+    <button hx-disable="this" class="rounded bg-ink px-5 py-3 text-sm font-medium text-white disabled:opacity-50 sm:mb-5">Search</button>
+    <p class="htmx-indicator text-xs text-muted sm:col-span-3" role="status">Searching flights…</p>
+  </form>
+  <div class="mt-7">{{ results|safe }}</div>
+</section>

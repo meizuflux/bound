@@ -28,6 +28,10 @@
   `HtmlTemplate<T>` from Salvo routes. Shared fragments live in `templates/partials/`.
 - In HTMX 4, inherited attributes need an explicit `:inherited` suffix; event
   names use the `htmx:phase:action` format.
+- HTMX 4 sends `HX-Target` as `tag#id`; use `templates::htmx_target_id` when
+  selecting a fragment response. Full/history restoration requests must render
+  the complete page shell. `PageView` includes titles in partial responses;
+  `public/js/app.js` moves focus for full-panel changes, never live results/polls.
 - `assets/css/app.css` imports Tailwind and scans `templates/`.
 - Tailwind generates `public/compiled/css/app.css`; Salvo serves `public/` at `/public/`.
   Generated assets belong in the ignored `public/compiled/` directory.
@@ -92,17 +96,50 @@ Tailwind watches CSS separately.
   it loads the current user and permissions from Postgres on each request and
   stores `CurrentUser` in Depot. Guests are redirected to sign-in; non-admins
   receive HTTP 403. Role changes apply to existing sessions immediately.
-- `src/admin.rs` owns the read-only admin router: `/admin` and `/admin/users`
+- `src/admin.rs` owns the admin router: `/admin` and `/admin/users`
   list users, `/admin/users/{id}` shows account details and recent activity, and
   `/admin/activity` lists activity.
   Queries live in `src/admin/data.rs`, typed views in `src/admin/views.rs`, and
   panels in `templates/partials/admin/`. Lists use email search and 25-row pages.
+- Admin writes live in focused user/flight handlers and `src/admin/mutations.rs`.
+  Use POST with `auth::protect` and `auth::require_admin`, typed confirmation for
+  account deletion, and revision checks. User email remains immutable. Admin
+  creation sends verification without changing the administrator's session.
+  Suspension denies existing sessions and future sign-in. Preserve protections
+  against removing one's own access or the last eligible administrator; serialize
+  these checks and the mutation in one transaction.
 - Migration 0006 starts durable `activity_events` tracking through user/session
   database triggers, including justfile role changes. No past events are backfilled.
-  Events describe the affected account, not the actor; never infer who made a
-  change. Do not log passwords, session tokens, or verification tokens. Future
-  admin writes must keep `auth::protect` and `auth::require_admin` and explicitly
-  record the actor if attribution is needed.
+  Migration 0008 adds actor/flight snapshots and detail fields. `src/audit.rs`
+  binds actors with transaction-local settings and records domain changes within
+  their mutation transaction. Older/direct-database events may lack attribution;
+  never infer who made them. Do not log passwords or session/verification tokens.
+  Activity history remains append-only through the application.
+
+## Shared flights
+
+- `src/flights.rs` owns verified-student HTTP routes; typed views and focused
+  panels live in `src/flights/views.rs` and `templates/partials/flights/`.
+  `src/flights/data.rs` owns transactional domain operations shared with admin.
+  `src/flights/catalog.rs` contains the explicitly supported airports/airlines.
+- `/flights` searches shared flights, `/flights/new` reviews and creates a flight,
+  `/flights/mine` lists the current user's trips, and `/flights/{id}` shows details.
+  Keep search fields outside the results swap target. Preserve normal forms and
+  full GET pages alongside HTMX fragments. HTMX 4 `hx-disable` takes a selector
+  such as `find button`, not a boolean.
+- Flight IDs are permanent. Match normalized flight number, departure airport
+  local date, and route; scheduled time is excluded from duplicate matching.
+  Use the shared domain functions for concurrent creation, revision checks,
+  correction approval, aliases, merges, and archive/restore. Never reassign
+  memberships when correcting the schedule.
+- Derive UTC from an airport's IANA time zone; reject nonexistent or ambiguous
+  local times rather than assuming an offset. This is a curated manual catalog,
+  not a live airline feed. Do not label community submissions as airline verified.
+- User-flight memberships are unique. Joining is separate from confirming a
+  particular revision. Corrections retain their base revision and are reviewed
+  by admins; stale proposals must not overwrite newer details. Merges retain
+  history and redirect old links. Student views expose same-school counts, never
+  other users' emails or identities.
 
 ## Local Postgres
 

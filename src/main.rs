@@ -1,6 +1,8 @@
 mod account;
 mod admin;
+mod audit;
 mod auth;
+mod flights;
 mod mail;
 mod schools;
 mod templates;
@@ -59,6 +61,7 @@ async fn run() {
         .get(index)
         .push(account::routes())
         .push(auth::routes())
+        .push(flights::routes())
         .push(admin::routes())
         .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));
 

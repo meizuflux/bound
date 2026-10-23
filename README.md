@@ -18,8 +18,14 @@ and expired links can be retried without creating another account.
 
 Each auth screen has its own [panel template](<templates/partials/auth/signup.html>)
 and typed context in [auth views](<src/auth/views.rs>). HTMX responses render only
-that panel; regular requests wrap it with the [auth page shell](<templates/auth/page.html>)
-and shared layout. There is no global mode selector or template-block slicing.
+that panel; regular requests wrap it with the [shared page shell](<templates/page.html>)
+and layout through the [page renderer](<src/templates.rs>). There is no global
+mode selector or template-block slicing.
+
+The account page is a separate feature at `/account`, owned by the
+[account module](<src/account.rs>) and [account panel](<templates/partials/account.html>).
+It requires a valid session and verified school email; sign-in and verification
+redirect there. Account UI does not live under `/auth`.
 
 Only genuinely reused markup is shared: [credential fields](<templates/partials/auth/credential_fields.html>)
 and [signout controls](<templates/partials/auth/signout.html>). Waiting, expired,

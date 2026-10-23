@@ -7,11 +7,14 @@ use salvo::prelude::*;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
-use crate::{schools, templates::HtmlTemplate};
+use crate::{
+    schools,
+    templates::{HtmlTemplate, PageView, is_htmx},
+};
 
 mod views;
 
-use views::{AuthView, CredentialsForm};
+use views::CredentialsForm;
 
 const SESSION_COOKIE: &str = "bound_session";
 
@@ -48,7 +51,6 @@ pub fn routes() -> Router {
         .hoop(protect)
         .push(Router::with_path("signup").get(signup_form).post(signup))
         .push(Router::with_path("signin").get(signin_form).post(signin))
-        .push(Router::with_path("account").get(account))
         .push(Router::with_path("signout").post(signout))
         .push(Router::with_path("verification").get(verification_page))
         .push(Router::with_path("verification/status").get(verification_status))
@@ -76,7 +78,7 @@ pub struct CurrentUser {
 }
 
 impl CurrentUser {
-    fn verified_school(&self) -> Option<&'static schools::School> {
+    pub(crate) fn verified_school(&self) -> Option<&'static schools::School> {
         schools::from_email(&self.email).filter(|_| self.email_verified)
     }
 }
@@ -95,6 +97,26 @@ async fn current_user(req: &Request, depot: &Depot) -> Result<Option<CurrentUser
     .fetch_optional(depot.get_typed::<PgPool>().unwrap())
     .await
     .map_err(internal)
+}
+
+/// Require a verified school account and make CurrentUser available to handlers.
+#[handler]
+pub(crate) async fn require_verified_user(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+    ctrl: &mut FlowCtrl,
+) {
+    match current_user(req, depot).await {
+        Ok(Some(user)) if user.verified_school().is_some() => {
+            depot.insert_typed(user);
+            return;
+        }
+        Ok(Some(_)) => redirect(req, res, "/auth/verification"),
+        Ok(None) => redirect(req, res, "/auth/signin"),
+        Err(error) => res.render(error),
+    }
+    ctrl.skip_rest();
 }
 
 /// Apply to admin routers; handlers can read CurrentUser from Depot.
@@ -140,12 +162,6 @@ async fn admin(depot: &mut Depot) -> HtmlTemplate<AdminTemplate> {
     })
 }
 
-fn is_htmx(req: &Request) -> bool {
-    req.headers()
-        .get("hx-request")
-        .is_some_and(|value| value == "true")
-}
-
 fn redirect(req: &Request, res: &mut Response, path: &'static str) {
     if is_htmx(req) {
         res.status_code(StatusCode::OK);
@@ -162,7 +178,12 @@ fn signup_error(req: &Request, res: &mut Response, status: StatusCode, form: Cre
 }
 
 #[handler]
-async fn protect(req: &mut Request, depot: &mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+pub(crate) async fn protect(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+    ctrl: &mut FlowCtrl,
+) {
     res.headers_mut()
         .insert("cache-control", "no-store".parse().unwrap());
     res.headers_mut()
@@ -412,7 +433,7 @@ async fn signin(
     .map_err(internal)?;
     if let Some(id) = valid {
         start_session(pool, id, req, depot.get_typed::<Auth>().unwrap(), res).await?;
-        redirect(req, res, "/auth/account");
+        redirect(req, res, "/account");
     } else {
         res.status_code(StatusCode::UNAUTHORIZED);
         views::Signin {
@@ -423,26 +444,6 @@ async fn signin(
             },
         }
         .show(req, res);
-    }
-    Ok(())
-}
-
-#[handler]
-async fn account(
-    req: &mut Request,
-    depot: &mut Depot,
-    res: &mut Response,
-) -> Result<(), StatusError> {
-    match current_user(req, depot).await? {
-        Some(user) if user.verified_school().is_some() => {
-            views::Account {
-                email: &user.email,
-                school: user.verified_school().unwrap().name,
-            }
-            .show(req, res);
-        }
-        Some(_) => redirect(req, res, "/auth/verification"),
-        None => redirect(req, res, "/auth/signin"),
     }
     Ok(())
 }
@@ -474,7 +475,7 @@ async fn show_verification(
     user: &CurrentUser,
 ) -> Result<(), StatusError> {
     if user.verified_school().is_some() {
-        redirect(req, res, "/auth/account");
+        redirect(req, res, "/account");
         return Ok(());
     }
     if schools::from_email(&user.email).is_none() {
@@ -589,7 +590,7 @@ async fn verification_status(
         return Ok(());
     };
     if user.verified_school().is_some() {
-        redirect(req, res, "/auth/account");
+        redirect(req, res, "/account");
     } else {
         let pending: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM email_verifications WHERE user_id = $1 AND expires_at > now())")
             .bind(user.id).fetch_one(depot.get_typed::<PgPool>().unwrap()).await.map_err(internal)?;

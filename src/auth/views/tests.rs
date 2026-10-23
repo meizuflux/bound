@@ -1,6 +1,4 @@
-use std::fmt;
-
-use salvo::http::ResBody;
+use salvo::{http::ResBody, prelude::*};
 
 use super::*;
 
@@ -14,7 +12,7 @@ fn request(htmx: bool) -> Request {
     request
 }
 
-fn render(view: impl AuthView, htmx: bool) -> String {
+fn render(view: impl PageView, htmx: bool) -> String {
     let title = view.title();
     let mut response = Response::new();
     view.show(&request(htmx), &mut response);
@@ -59,18 +57,6 @@ fn each_screen_renders_as_a_page_or_a_focused_htmx_panel() {
         assert!(signin.contains("autocomplete=\"current-password\""));
         assert!(!signin.contains("hx-post=\"/auth/signup\""));
         assert!(!signin.contains("Currently supporting"));
-
-        let account = render(
-            Account {
-                email: "student@duke.edu",
-                school: "Duke University",
-            },
-            htmx,
-        );
-        assert!(account.contains("student@duke.edu · Duke University"));
-        assert!(account.contains("hx-post=\"/auth/signout\""));
-        assert!(!account.contains("type=\"email\""));
-        assert!(!account.contains("hx-post=\"/auth/resend\""));
 
         let pending = render(
             Verification {
@@ -169,13 +155,6 @@ fn wrapping_a_panel_never_bypasses_or_duplicates_escaping() {
                 htmx,
             ),
             render(
-                Account {
-                    email: payload,
-                    school: payload,
-                },
-                htmx,
-            ),
-            render(
                 Verification {
                     email: payload,
                     pending: true,
@@ -198,38 +177,5 @@ fn wrapping_a_panel_never_bypasses_or_duplicates_escaping() {
             assert!(html.contains("&#60;script&#62;"));
             assert!(!html.contains("&amp;#60;script"));
         }
-    }
-}
-
-#[test]
-fn rendering_failures_return_500_for_panels_and_wrapped_pages() {
-    struct BrokenValue;
-
-    impl fmt::Display for BrokenValue {
-        fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-            Err(fmt::Error)
-        }
-    }
-
-    #[derive(Template)]
-    #[template(source = "<section>{{ value }}</section>", ext = "html")]
-    struct BrokenView {
-        value: BrokenValue,
-    }
-
-    impl AuthView for BrokenView {
-        fn title(&self) -> &'static str {
-            "Broken view"
-        }
-    }
-
-    for htmx in [false, true] {
-        let mut response = Response::new();
-        BrokenView { value: BrokenValue }.show(&request(htmx), &mut response);
-        assert_eq!(
-            response.status_code,
-            Some(StatusCode::INTERNAL_SERVER_ERROR)
-        );
-        assert!(response.take_body().is_error());
     }
 }

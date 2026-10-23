@@ -4,14 +4,16 @@
 - `templates/layout.html` contains the shared page shell; `templates/index.html`
   extends it for the Bound landing page.
 - Auth screens have focused templates in `templates/partials/auth/`: signup,
-  signin, account, verification waiting/resend, link confirmation, link result,
-  and unsupported legacy accounts. Only credential fields and signout controls
-  are shared includes; don't rebuild a global string-mode auth template.
-- `src/auth/views.rs` owns the typed view contexts and `AuthView` response helper.
-  HTMX requests render the requested panel directly; normal requests wrap that
-  same panel with `templates/auth/page.html` and the shared layout. The wrapper's
-  `safe` filter receives only a typed, already-escaped Askama `Template`, never
-  arbitrary HTML or user input. Keep rendering failures in `HtmlTemplate<T>`.
+  signin, verification waiting/resend, link confirmation, link result, and
+  unsupported legacy accounts. Credential fields and signout controls are shared
+  includes; don't rebuild a global string-mode auth template.
+- `src/auth/views.rs` owns the typed auth view contexts. The standalone `/account`
+  page belongs to `src/account.rs` and `templates/partials/account.html`, not auth.
+- `src/templates.rs` provides the shared `PageView` helper. HTMX requests render
+  the requested panel directly; normal requests wrap that same panel with
+  `templates/page.html` and the shared layout. The wrapper's `safe` filter
+  receives only a typed, already-escaped Askama `Template`, never arbitrary HTML
+  or user input. Keep rendering failures in `HtmlTemplate<T>`.
 - `src/templates.rs` provides `HtmlTemplate<T>`, the local Salvo response adapter.
   Return `HtmlTemplate(template)` from HTML handlers. It sets the HTML content
   type and logs rendering failures before returning HTTP 500.
@@ -39,7 +41,10 @@ Tailwind watches CSS separately.
 
 ## Authentication
 
-- `src/auth.rs` handles email/password sign-up, sign-in, account, and sign-out.
+- `src/auth.rs` handles email/password sign-up, sign-in, verification, and sign-out.
+  `/account` is a separate router/module protected by `auth::protect` and
+  `auth::require_verified_user`; authenticated handlers read `CurrentUser` from
+  Depot. Sign-in and successful verification polling redirect to `/account`.
 - Passwords use salted Argon2id; opaque session tokens are stored as SHA-256
   hashes in Postgres and expire after 30 days. Cookies are HttpOnly and SameSite=Lax.
 - `APP_URL` is the exact application origin (default `http://localhost:8000`),

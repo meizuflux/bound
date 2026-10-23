@@ -1,38 +1,7 @@
 //! Typed authentication panels shared by full-page and HTMX responses.
 
+use crate::{schools, templates::PageView};
 use askama::Template;
-use salvo::prelude::*;
-
-use crate::{schools, templates::HtmlTemplate};
-
-use super::is_htmx;
-
-// Only an already-escaped Askama template can be inserted into the page shell.
-// The shell's `safe` filter never receives arbitrary user-provided HTML.
-#[derive(Template)]
-#[template(path = "auth/page.html")]
-struct Page<T: Template> {
-    title: &'static str,
-    content: T,
-}
-
-pub(super) trait AuthView: Template {
-    fn title(&self) -> &'static str;
-
-    fn show(self, req: &Request, res: &mut Response)
-    where
-        Self: Sized,
-    {
-        if is_htmx(req) {
-            res.render(HtmlTemplate(self));
-        } else {
-            res.render(HtmlTemplate(Page {
-                title: self.title(),
-                content: self,
-            }));
-        }
-    }
-}
 
 #[derive(Default)]
 pub(super) struct CredentialsForm<'a> {
@@ -58,7 +27,7 @@ impl<'a> Signup<'a> {
     }
 }
 
-impl AuthView for Signup<'_> {
+impl PageView for Signup<'_> {
     fn title(&self) -> &'static str {
         "Create an account"
     }
@@ -70,22 +39,9 @@ pub(super) struct Signin<'a> {
     pub form: CredentialsForm<'a>,
 }
 
-impl AuthView for Signin<'_> {
+impl PageView for Signin<'_> {
     fn title(&self) -> &'static str {
         "Sign in"
-    }
-}
-
-#[derive(Template)]
-#[template(path = "partials/auth/account.html")]
-pub(super) struct Account<'a> {
-    pub email: &'a str,
-    pub school: &'a str,
-}
-
-impl AuthView for Account<'_> {
-    fn title(&self) -> &'static str {
-        "Your account"
     }
 }
 
@@ -97,7 +53,7 @@ pub(super) struct Verification<'a> {
     pub error: &'a str,
 }
 
-impl AuthView for Verification<'_> {
+impl PageView for Verification<'_> {
     fn title(&self) -> &'static str {
         if self.pending {
             "Check your school inbox"
@@ -113,7 +69,7 @@ pub(super) struct Verify<'a> {
     pub token: &'a str,
 }
 
-impl AuthView for Verify<'_> {
+impl PageView for Verify<'_> {
     fn title(&self) -> &'static str {
         "Verify your school email"
     }
@@ -125,7 +81,7 @@ pub(super) struct VerificationResult {
     pub success: bool,
 }
 
-impl AuthView for VerificationResult {
+impl PageView for VerificationResult {
     fn title(&self) -> &'static str {
         if self.success {
             "School email verified"
@@ -139,7 +95,7 @@ impl AuthView for VerificationResult {
 #[template(path = "partials/auth/unsupported.html")]
 pub(super) struct Unsupported;
 
-impl AuthView for Unsupported {
+impl PageView for Unsupported {
     fn title(&self) -> &'static str {
         "School email required"
     }

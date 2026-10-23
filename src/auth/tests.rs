@@ -31,6 +31,7 @@ fn app_with_auth(pool: PgPool, auth: Auth) -> (Service, Arc<Mutex<Vec<String>>>)
             .hoop(affix_state::inject(pool))
             .hoop(affix_state::inject(auth))
             .push(routes())
+            .push(crate::account::routes())
             .push(admin_routes()),
     );
     (service, outbox)
@@ -359,7 +360,7 @@ async fn signup_immediately_verifies_the_only_email_and_preserves_session_rules(
             .unwrap();
     assert_eq!(state, ("student@duke.edu".into(), false, false));
     assert_eq!(
-        get(&service, "/auth/account", Some(&first_cookie))
+        get(&service, "/account", Some(&first_cookie))
             .await
             .headers()["hx-redirect"],
         "/auth/verification"
@@ -450,7 +451,7 @@ async fn signup_immediately_verifies_the_only_email_and_preserves_session_rules(
         get(&service, "/auth/verification/status", Some(&first_cookie))
             .await
             .headers()["hx-redirect"],
-        "/auth/account"
+        "/account"
     );
     assert_eq!(
         get(&service, "/auth/verification/status", Some(&other_cookie))
@@ -482,17 +483,17 @@ async fn signup_immediately_verifies_the_only_email_and_preserves_session_rules(
     .await;
     assert_eq!(wrong.status_code, Some(StatusCode::UNAUTHORIZED));
     let signin = post(&service, "/auth/signin", Some(&first_cookie), &credentials).await;
-    assert_eq!(signin.headers()["hx-redirect"], "/auth/account");
+    assert_eq!(signin.headers()["hx-redirect"], "/account");
     let second_cookie = cookie(&signin);
     assert_ne!(first_cookie, second_cookie);
     assert_eq!(
-        get(&service, "/auth/account", Some(&first_cookie))
+        get(&service, "/account", Some(&first_cookie))
             .await
             .headers()["hx-redirect"],
         "/auth/signin"
     );
     assert_eq!(
-        get(&service, "/auth/account", Some(&second_cookie))
+        get(&service, "/account", Some(&second_cookie))
             .await
             .status_code,
         Some(StatusCode::OK)
@@ -503,7 +504,7 @@ async fn signup_immediately_verifies_the_only_email_and_preserves_session_rules(
         Some(Duration::ZERO)
     );
     assert_eq!(
-        get(&service, "/auth/account", Some(&second_cookie))
+        get(&service, "/account", Some(&second_cookie))
             .await
             .headers()["hx-redirect"],
         "/auth/signin"
@@ -551,9 +552,7 @@ async fn resends_expiry_and_unverified_signin_use_the_same_email(pool: PgPool) {
     let signin = post(&service, "/auth/signin", Some(&first), &credentials).await;
     let second = cookie(&signin);
     assert_eq!(
-        get(&service, "/auth/account", Some(&second))
-            .await
-            .headers()["hx-redirect"],
+        get(&service, "/account", Some(&second)).await.headers()["hx-redirect"],
         "/auth/verification"
     );
     post(&service, "/auth/resend", Some(&second), &[]).await;
@@ -638,7 +637,7 @@ async fn failed_signup_delivery_keeps_a_session_and_can_be_retried(pool: PgPool)
         Some(StatusCode::OK)
     );
     assert_eq!(
-        get(&recovered_service, "/auth/account", Some(&session))
+        get(&recovered_service, "/account", Some(&session))
             .await
             .status_code,
         Some(StatusCode::OK)
@@ -693,7 +692,7 @@ async fn normal_forms_support_signup_verification_and_signin(pool: PgPool) {
         .send(&service)
         .await;
     assert_eq!(signin.status_code, Some(StatusCode::SEE_OTHER));
-    assert_eq!(signin.headers()["location"], "/auth/account");
+    assert_eq!(signin.headers()["location"], "/account");
 }
 
 #[sqlx::test]

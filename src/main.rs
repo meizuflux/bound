@@ -1,3 +1,4 @@
+mod account;
 mod auth;
 mod mail;
 mod schools;
@@ -42,7 +43,10 @@ async fn run() {
         .await
         .expect("Failed to connect to Postgres");
     tracing::info!("Connected to Postgres");
-    sqlx::migrate!().run(&pool).await.expect("Failed to migrate database");
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("Failed to migrate database");
     let auth = auth::Auth::from_env();
 
     // Bind server to port 8000
@@ -52,6 +56,7 @@ async fn run() {
         .hoop(affix_state::inject(pool))
         .hoop(affix_state::inject(auth))
         .get(index)
+        .push(account::routes())
         .push(auth::routes())
         .push(auth::admin_routes())
         .push(Router::with_path("public/{**path}").get(StaticDir::new(["public"])));

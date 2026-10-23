@@ -16,6 +16,14 @@ pub fn supported_names() -> String {
         .join(", ")
 }
 
+pub fn supported_domains() -> String {
+    SCHOOLS
+        .iter()
+        .flat_map(|school| school.email_suffixes.iter().copied())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 pub fn from_email(email: &str) -> Option<&'static School> {
     let address: lettre::Address = email.trim().parse().ok()?;
     SCHOOLS.iter().find(|school| {

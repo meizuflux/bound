@@ -147,6 +147,8 @@ async fn forms_reject_unknown_domains_before_database_access_and_enforce_csrf() 
         assert!(html.contains("School email"));
         assert_eq!(html.matches("type=\"email\"").count(), 1);
         assert!(!html.contains("name=\"school_email\""));
+        assert!(!html.contains("aria-invalid=\"true\""));
+        assert!(!html.contains("role=\"alert\""));
     }
     for path in ["signup", "signin", "verify", "resend", "signout"] {
         for origin in [None, Some("https://other.test")] {
@@ -179,7 +181,16 @@ async fn forms_reject_unknown_domains_before_database_access_and_enforce_csrf() 
         assert!(invalid.cookie(SESSION_COOKIE).is_none());
         let html = invalid.take_string().await.unwrap();
         assert!(html.contains("id=\"auth-panel\""));
-        assert!(html.contains("supported school"));
+        assert!(html.contains("id=\"auth-email-error\""));
+        assert!(html.contains("aria-invalid=\"true\" aria-describedby=\"auth-email-error\""));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains(&format!("value=\"{email}\"")));
+        if normalize_email(email).is_some() {
+            assert!(html.contains("Please use an officially supported school email address."));
+            assert!(html.contains("Supported domains: duke.edu."));
+        } else {
+            assert!(html.contains("Please enter a valid school email address."));
+        }
         assert!(!html.contains("<!doctype"));
     }
     let mut short = post(
@@ -190,7 +201,11 @@ async fn forms_reject_unknown_domains_before_database_access_and_enforce_csrf() 
     )
     .await;
     assert_eq!(short.status_code, Some(StatusCode::BAD_REQUEST));
-    assert!(short.take_string().await.unwrap().contains("12 and 128"));
+    let html = short.take_string().await.unwrap();
+    assert!(html.contains("12 and 128"));
+    assert!(html.contains("aria-describedby=\"auth-password-error\""));
+    assert!(html.contains("value=\"a@duke.edu\""));
+    assert!(!html.contains("value=\"short\""));
     let guest = get(&service, "/auth/verification", None).await;
     assert_eq!(guest.headers()["hx-redirect"], "/auth/signin");
     let unsupported_login = post(
@@ -204,6 +219,81 @@ async fn forms_reject_unknown_domains_before_database_access_and_enforce_csrf() 
         unsupported_login.status_code,
         Some(StatusCode::UNAUTHORIZED)
     );
+}
+
+#[tokio::test]
+async fn signup_errors_render_full_pages_for_normal_forms_and_escape_email_values() {
+    let service = Service::new(
+        Router::new()
+            .hoop(affix_state::inject(test_auth("http://localhost:8000")))
+            .push(routes()),
+    );
+    let secret = "do-not-echo-this-password";
+    let mut response = TestClient::post("http://localhost:8000/auth/signup")
+        .add_header("origin", "http://localhost:8000", true)
+        .form(&[("email", "student@example.com"), ("password", secret)])
+        .send(&service)
+        .await;
+    assert_eq!(response.status_code, Some(StatusCode::BAD_REQUEST));
+    assert_eq!(
+        response.headers()["content-type"],
+        "text/html; charset=utf-8"
+    );
+    assert!(response.headers().get("hx-redirect").is_none());
+    let html = response.take_string().await.unwrap();
+    assert!(html.contains("<!doctype html>"));
+    assert!(html.contains("Please use an officially supported school email address."));
+    assert!(html.contains("value=\"student@example.com\""));
+    assert!(html.contains("hx-post=\"/auth/signup\""));
+    assert!(!html.contains(secret));
+
+    let malicious_email = "\"><script>alert(1)</script>@example.com";
+    let mut response = post(
+        &service,
+        "/auth/signup",
+        None,
+        &[("email", malicious_email), ("password", secret)],
+    )
+    .await;
+    assert_eq!(response.status_code, Some(StatusCode::BAD_REQUEST));
+    let html = response.take_string().await.unwrap();
+    assert!(!html.contains("<script>alert(1)</script>"));
+    assert!(html.contains("&#60;script&#62;"));
+    assert!(!html.contains(secret));
+}
+
+#[tokio::test]
+async fn signup_backend_failure_returns_a_retryable_form_without_internal_details() {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://localhost/bound")
+        .unwrap();
+    pool.close().await;
+    let (service, outbox) = app(pool);
+    for htmx in [true, false] {
+        let mut request = TestClient::post("http://localhost:8000/auth/signup")
+            .add_header("origin", "http://localhost:8000", true)
+            .form(&[("email", "student@duke.edu"), ("password", PASSWORD)]);
+        if htmx {
+            request = request.add_header("hx-request", "true", true);
+        }
+        let mut response = request.send(&service).await;
+        assert_eq!(
+            response.status_code,
+            Some(StatusCode::INTERNAL_SERVER_ERROR)
+        );
+        assert!(response.cookie(SESSION_COOKIE).is_none());
+        assert!(response.headers().get("hx-redirect").is_none());
+        let html = response.take_string().await.unwrap();
+        assert!(html.contains("complete your signup right now."));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("value=\"student@duke.edu\""));
+        assert!(html.contains("hx-post=\"/auth/signup\""));
+        assert_eq!(html.contains("<!doctype html>"), !htmx);
+        assert!(!html.contains("pool timed out"));
+        assert!(!html.contains("pool closed"));
+        assert!(!html.contains(PASSWORD));
+    }
+    assert!(outbox.lock().unwrap().is_empty());
 }
 
 #[sqlx::test]
@@ -327,8 +417,13 @@ async fn signup_immediately_verifies_the_only_email_and_preserves_session_rules(
             .status_code,
         Some(StatusCode::NO_CONTENT)
     );
-    let duplicate = post(&service, "/auth/signup", None, &credentials).await;
+    let mut duplicate = post(&service, "/auth/signup", None, &credentials).await;
     assert_eq!(duplicate.status_code, Some(StatusCode::CONFLICT));
+    let html = duplicate.take_string().await.unwrap();
+    assert!(html.contains("Try signing in with this email instead."));
+    assert!(html.contains("aria-describedby=\"auth-email-error\""));
+    assert!(html.contains("value=\" Student@DUKE.edu \""));
+    assert!(!html.contains(PASSWORD));
     assert_eq!(
         outbox.lock().unwrap().len(),
         2,

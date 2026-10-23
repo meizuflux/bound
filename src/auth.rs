@@ -136,6 +136,14 @@ async fn admin(depot: &mut Depot) -> HtmlTemplate<AdminTemplate> {
     })
 }
 
+#[derive(Default)]
+struct AuthForm<'a> {
+    email: &'a str,
+    email_error: &'a str,
+    password_error: &'a str,
+    error: &'a str,
+}
+
 #[derive(Template)]
 #[template(path = "auth.html")]
 struct AuthTemplate<'a> {
@@ -143,6 +151,7 @@ struct AuthTemplate<'a> {
     mode: &'a str,
     message: &'a str,
     token: &'a str,
+    form: AuthForm<'a>,
 }
 
 #[derive(Template)]
@@ -152,6 +161,7 @@ struct AuthFragment<'a> {
     mode: &'a str,
     message: &'a str,
     token: &'a str,
+    form: AuthForm<'a>,
 }
 
 fn is_htmx(req: &Request) -> bool {
@@ -175,6 +185,22 @@ fn page(req: &Request, res: &mut Response, mode: &str, message: &str) {
 }
 
 fn render_page(req: &Request, res: &mut Response, mode: &str, message: &str, token: &str) {
+    render_auth_page(req, res, mode, message, token, AuthForm::default());
+}
+
+fn signup_error(req: &Request, res: &mut Response, status: StatusCode, form: AuthForm<'_>) {
+    res.status_code(status);
+    render_auth_page(req, res, "signup", "", "", form);
+}
+
+fn render_auth_page(
+    req: &Request,
+    res: &mut Response,
+    mode: &str,
+    message: &str,
+    token: &str,
+    form: AuthForm<'_>,
+) {
     let title = match mode {
         "signup" => "Create an account",
         "signin" => "Sign in",
@@ -192,6 +218,7 @@ fn render_page(req: &Request, res: &mut Response, mode: &str, message: &str, tok
             mode,
             message,
             token,
+            form,
         }));
     } else {
         res.render(HtmlTemplate(AuthTemplate {
@@ -199,6 +226,7 @@ fn render_page(req: &Request, res: &mut Response, mode: &str, message: &str, tok
             mode,
             message,
             token,
+            form,
         }));
     }
 }
@@ -304,52 +332,64 @@ async fn start_session(
 }
 
 #[handler]
-async fn signup(
-    req: &mut Request,
-    depot: &mut Depot,
-    res: &mut Response,
-) -> Result<(), StatusError> {
-    let email = req.form::<String>("email").await.unwrap_or_default();
+async fn signup(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let submitted_email = req.form::<String>("email").await.unwrap_or_default();
     let password = req.form::<String>("password").await.unwrap_or_default();
-    let email = normalize_email(&email);
-    let school = email.as_deref().and_then(schools::from_email);
-    let (Some(email), Some(school)) = (email, school) else {
-        res.status_code(StatusCode::BAD_REQUEST);
-        page(
+    let Some(email) = normalize_email(&submitted_email) else {
+        signup_error(
             req,
             res,
-            "signup",
-            &format!(
-                "Enter a school email from a supported school. Currently supporting {}.",
-                schools::supported_names()
-            ),
+            StatusCode::BAD_REQUEST,
+            AuthForm {
+                email: &submitted_email,
+                email_error: "Please enter a valid school email address.",
+                ..Default::default()
+            },
         );
-        return Ok(());
+        return;
+    };
+    let Some(school) = schools::from_email(&email) else {
+        signup_error(
+            req,
+            res,
+            StatusCode::BAD_REQUEST,
+            AuthForm {
+                email: &submitted_email,
+                email_error: &format!(
+                    "Please use an officially supported school email address. Supported domains: {}.",
+                    schools::supported_domains()
+                ),
+                ..Default::default()
+            },
+        );
+        return;
     };
     if !(12..=128).contains(&password.chars().count()) {
-        res.status_code(StatusCode::BAD_REQUEST);
-        page(
+        signup_error(
             req,
             res,
-            "signup",
-            "Use a password between 12 and 128 characters.",
+            StatusCode::BAD_REQUEST,
+            AuthForm {
+                email: &submitted_email,
+                password_error: "Use a password between 12 and 128 characters.",
+                ..Default::default()
+            },
         );
-        return Ok(());
+        return;
     }
-    let hash = tokio::task::spawn_blocking(move || hash_password(&password))
-        .await
-        .map_err(internal)?;
-    let pool = depot.get_typed::<PgPool>().unwrap();
-    let id: Option<i64> = sqlx::query_scalar(
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING RETURNING id")
-        .bind(&email).bind(hash).fetch_optional(pool).await.map_err(internal)?;
-    if let Some(id) = id {
-        let auth = depot.get_typed::<Auth>().unwrap();
-        start_session(pool, id, req, auth, res).await?;
-        if send_verification(pool, auth, id, &email, school)
-            .await
-            .is_err()
-        {
+    match create_account(req, depot, res, &email, password, school).await {
+        Ok(SignupOutcome::Created) => redirect(req, res, "/auth/verification"),
+        Ok(SignupOutcome::AlreadyExists) => signup_error(
+            req,
+            res,
+            StatusCode::CONFLICT,
+            AuthForm {
+                email: &submitted_email,
+                email_error: "Unable to create this account. Try signing in with this email instead.",
+                ..Default::default()
+            },
+        ),
+        Ok(SignupOutcome::DeliveryFailed) => {
             res.status_code(StatusCode::SERVICE_UNAVAILABLE);
             page(
                 req,
@@ -357,19 +397,54 @@ async fn signup(
                 "unverified",
                 "Your account was created, but we couldn't send the verification email. Please try resending it.",
             );
-        } else {
-            redirect(req, res, "/auth/verification");
         }
-    } else {
-        res.status_code(StatusCode::CONFLICT);
-        page(
+        Err(_) => signup_error(
             req,
             res,
-            "signup",
-            "Unable to create this account. Try signing in.",
-        );
+            StatusCode::INTERNAL_SERVER_ERROR,
+            AuthForm {
+                email: &submitted_email,
+                error: "We couldn't complete your signup right now. Please try again, or sign in if you've already registered.",
+                ..Default::default()
+            },
+        ),
     }
-    Ok(())
+}
+
+enum SignupOutcome {
+    Created,
+    AlreadyExists,
+    DeliveryFailed,
+}
+
+async fn create_account(
+    req: &Request,
+    depot: &Depot,
+    res: &mut Response,
+    email: &str,
+    password: String,
+    school: &schools::School,
+) -> Result<SignupOutcome, StatusError> {
+    let hash = tokio::task::spawn_blocking(move || hash_password(&password))
+        .await
+        .map_err(internal)?;
+    let pool = depot.get_typed::<PgPool>().unwrap();
+    let id: Option<i64> = sqlx::query_scalar(
+        "INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING RETURNING id")
+        .bind(email).bind(hash).fetch_optional(pool).await.map_err(internal)?;
+    let Some(id) = id else {
+        return Ok(SignupOutcome::AlreadyExists);
+    };
+    let auth = depot.get_typed::<Auth>().unwrap();
+    start_session(pool, id, req, auth, res).await?;
+    if send_verification(pool, auth, id, email, school)
+        .await
+        .is_err()
+    {
+        Ok(SignupOutcome::DeliveryFailed)
+    } else {
+        Ok(SignupOutcome::Created)
+    }
 }
 
 #[handler]

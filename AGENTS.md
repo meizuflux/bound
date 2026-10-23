@@ -59,6 +59,11 @@ Tailwind watches CSS separately.
   have a one-minute cooldown.
 - Auth forms use HTMX 4 with HTML fragments for updates and `HX-Redirect` for
   navigation. Keep normal form submissions working too.
+- Signup errors are Askama-rendered inline alerts with field associations and
+  `aria-invalid`. Preserve and escape the submitted email, never the password.
+  Unsupported domains show the configured allowed domains. Return appropriate
+  400/409/500 statuses; HTMX 4 swaps error fragments by default. Log backend
+  failures but show only a safe, retryable form message to the user.
 - The waiting page polls `/auth/verification/status` every two seconds using the
   current session. Pending polls return 204; verification redirects the original
   page to the account. Expired links stop polling and offer a resend to the same

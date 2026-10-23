@@ -6,12 +6,15 @@
   {% if !message.is_empty() %}<p class="mt-4 text-muted" role="status">{{ message }}</p>{% endif %}
   {% if mode == "signup" || mode == "signin" %}
   <form method="post" action="/auth/{{ mode }}" hx-post="/auth/{{ mode }}" hx-target="#auth-panel" hx-swap="outerHTML" class="mt-6 space-y-4">
+    {% if !form.error.is_empty() %}<p class="rounded border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">{{ form.error }}</p>{% endif %}
     <label class="block">School email
-      <input name="email" type="email" autocomplete="email" required maxlength="254" class="mt-1 block w-full rounded border border-muted/40 bg-white p-3">
+      <input id="auth-email" name="email" type="email" value="{{ form.email }}" autocomplete="email" required maxlength="254" {% if !form.email_error.is_empty() %}aria-invalid="true" aria-describedby="auth-email-error"{% endif %} class="mt-1 block w-full rounded border {% if !form.email_error.is_empty() %}border-red-600{% else %}border-muted/40{% endif %} bg-white p-3">
     </label>
+    {% if !form.email_error.is_empty() %}<p id="auth-email-error" class="rounded border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">{{ form.email_error }}</p>{% endif %}
     <label class="block">Password
-      <input name="password" type="password" autocomplete="{% if mode == "signup" %}new-password{% else %}current-password{% endif %}" required minlength="12" maxlength="128" class="mt-1 block w-full rounded border border-muted/40 bg-white p-3">
+      <input id="auth-password" name="password" type="password" autocomplete="{% if mode == "signup" %}new-password{% else %}current-password{% endif %}" required minlength="12" maxlength="128" {% if !form.password_error.is_empty() %}aria-invalid="true" aria-describedby="auth-password-error"{% endif %} class="mt-1 block w-full rounded border {% if !form.password_error.is_empty() %}border-red-600{% else %}border-muted/40{% endif %} bg-white p-3">
     </label>
+    {% if !form.password_error.is_empty() %}<p id="auth-password-error" class="rounded border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">{{ form.password_error }}</p>{% endif %}
     <button class="w-full rounded bg-ink p-3 text-white">{{ title }}</button>
   </form>
   <p class="mt-5 text-sm text-muted">

@@ -21,7 +21,10 @@
   <button class="rounded bg-ink px-4 py-2 text-sm text-white">Save account</button>
 </form>
 {% if !own_account %}<a href="/admin/users/{{ user.id }}/delete" hx-get="/admin/users/{{ user.id }}/delete" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="mt-5 inline-block text-sm text-red-800 underline underline-offset-4">Delete account…</a>{% endif %}
-<h3 class="mt-10 text-lg font-semibold">Recent activity</h3>
+<div class="mt-10 flex items-center justify-between gap-4">
+  <h3 class="text-lg font-semibold">Recent activity</h3>
+  <a href="/admin/activity?q={{ user.email|urlencode_strict }}" hx-get="/admin/activity?q={{ user.email|urlencode_strict }}" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="text-sm underline underline-offset-4">View all</a>
+</div>
 <p class="mt-2 text-sm text-muted">The 25 most recent recorded events for this account.</p>
 {% include "partials/admin/activity_table.html" %}
 {% endblock %}

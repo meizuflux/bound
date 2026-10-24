@@ -2,9 +2,10 @@
 {% block admin_content %}
 <div class="flex items-center justify-between gap-4"><h2 class="text-xl font-semibold">Users</h2><a href="/admin/users/new" hx-get="/admin/users/new" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="rounded bg-ink px-4 py-2 text-sm text-white">Create user</a></div>
 <p class="mt-2 text-sm text-muted">Browse accounts and open a user to see their details and recent activity.</p>
-<form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="mt-6 flex flex-wrap items-end gap-3">
+<form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-users-results" hx-select="#admin-users-results" hx-swap="outerHTML" hx-replace-url="true" hx-sync="#admin-panel:replace" hx-trigger="submit, input changed delay:400ms from:#admin-search" class="mt-6 flex flex-wrap items-end gap-3">
   {% include "partials/admin/search.html" %}
 </form>
+<div id="admin-users-results" aria-live="polite">
 <div class="mt-6 overflow-x-auto rounded-lg border border-ink/15 bg-white">
   <table class="w-full text-left text-sm">
     <caption class="sr-only">Users, newest accounts first. Dates are in UTC.</caption>
@@ -26,7 +27,8 @@
     </tbody>
   </table>
 </div>
-<form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true">
+<form method="get" action="/admin/users" hx-get="/admin/users" hx-target="#admin-users-results" hx-select="#admin-users-results" hx-swap="outerHTML" hx-replace-url="true" hx-sync="#admin-panel:replace">
   {% include "partials/admin/pagination.html" %}
 </form>
+</div>
 {% endblock %}

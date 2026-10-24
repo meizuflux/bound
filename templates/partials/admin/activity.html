@@ -2,11 +2,13 @@
 {% block admin_content %}
 <h2 class="text-xl font-semibold">Activity history</h2>
 <p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted">Account creation, verification, role changes, and session starts and ends. History begins when activity tracking was enabled; earlier events are unavailable.</p>
-<form method="get" action="/admin/activity" hx-get="/admin/activity" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true" class="mt-6 flex flex-wrap items-end gap-3">
+<form method="get" action="/admin/activity" hx-get="/admin/activity" hx-target="#admin-activity-results" hx-select="#admin-activity-results" hx-swap="outerHTML" hx-replace-url="true" hx-sync="#admin-panel:replace" hx-trigger="submit, input changed delay:400ms from:#admin-search" class="mt-6 flex flex-wrap items-end gap-3">
   {% include "partials/admin/search.html" %}
 </form>
+<div id="admin-activity-results" aria-live="polite">
 {% include "partials/admin/activity_table.html" %}
-<form method="get" action="/admin/activity" hx-get="/admin/activity" hx-target="#admin-panel" hx-swap="outerHTML" hx-push-url="true">
+<form method="get" action="/admin/activity" hx-get="/admin/activity" hx-target="#admin-activity-results" hx-select="#admin-activity-results" hx-swap="outerHTML" hx-replace-url="true" hx-sync="#admin-panel:replace">
   {% include "partials/admin/pagination.html" %}
 </form>
+</div>
 {% endblock %}

@@ -104,7 +104,10 @@ Tailwind watches CSS separately.
   list users, `/admin/users/{id}` shows account details and recent activity, and
   `/admin/activity` lists activity.
   Queries live in `src/admin/data.rs`, typed views in `src/admin/views.rs`, and
-  panels in `templates/partials/admin/`. Lists use email search and 25-row pages.
+  panels in `templates/partials/admin/`. Lists use email search and 25-row pages. Users, flights, and activity search
+  use HTMX `input changed delay:400ms` triggers with `hx-sync` replacement. Search
+  fields stay outside results targets; `hx-select` extracts results from the typed
+  page response, preserving typing focus and normal GET/history navigation.
 - Admin writes live in focused user/flight handlers and `src/admin/mutations.rs`.
   Use POST with `auth::protect` and `auth::require_admin`, typed confirmation for
   account deletion, and revision checks. User email remains immutable. Admin

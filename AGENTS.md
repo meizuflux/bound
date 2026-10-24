@@ -55,6 +55,8 @@ Tailwind watches CSS separately.
   checked on POST requests; HTTPS enables Secure cookies.
 - SQLx embeds migrations from `migrations/` and applies them at startup.
   `build.rs` tells Cargo to rebuild when the migration directory changes.
+- Applied migrations are immutable, including comments and whitespace (SQLx checksums
+  the entire file). Put subsequent schema changes in a new numbered migration.
 - Sign-up and sign-in use one email: the user's school email. Reject sign-up
   unless its exact domain is mapped in `src/schools.rs`; do not accept arbitrary
   `.edu` addresses or subdomains. Currently only `duke.edu` is supported.

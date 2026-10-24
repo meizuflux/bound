@@ -163,6 +163,48 @@ async fn search_swaps_results_only_and_never_shows_member_identity(pool: PgPool)
 }
 
 #[sqlx::test]
+async fn search_accepts_either_filter_or_both(pool: PgPool) {
+    let (user_id, cookie) = session(&pool, "student@duke.edu").await;
+    data::create(&pool, user_id, &input()).await.unwrap();
+    let mut other = input();
+    other.flight_number = "UA456".into();
+    data::create(&pool, user_id, &other).await.unwrap();
+    let service = app(pool);
+    for target in [None, Some("div#flight-results")] {
+        for (query, aa, ua) in [
+            ("number=AA123", true, false),
+            ("date=2027-03-20", true, true),
+            ("number=AA123&date=2027-03-20", true, false),
+            ("number=AA123&date=2027-03-21", false, false),
+            ("", false, false),
+        ] {
+            let mut response = get(
+                &service,
+                &format!("/flights?{query}"),
+                Some(&cookie),
+                target,
+            )
+            .await;
+            assert_eq!(response.status_code, Some(StatusCode::OK));
+            let html = response.take_string().await.unwrap();
+            assert_eq!(html.contains("AA123 ·"), aa, "{query}");
+            assert_eq!(html.contains("UA456 ·"), ua, "{query}");
+            assert_eq!(html.contains("Community flights"), !query.is_empty());
+        }
+        for query in ["number=invalid", "date=invalid"] {
+            let response = get(
+                &service,
+                &format!("/flights?{query}"),
+                Some(&cookie),
+                target,
+            )
+            .await;
+            assert_eq!(response.status_code, Some(StatusCode::BAD_REQUEST));
+        }
+    }
+}
+
+#[sqlx::test]
 async fn review_creation_duplicate_and_membership_work_with_normal_forms(pool: PgPool) {
     let (user_id, cookie) = session(&pool, "student@duke.edu").await;
     let service = app(pool.clone());
@@ -482,4 +524,142 @@ async fn inline_creation_keeps_one_navigation_and_preserves_its_review_context(p
     let html = response.take_string().await.unwrap();
     assert!(html.contains("value=\"15:30\""));
     assert!(!html.contains("<h1"));
+}
+
+#[sqlx::test]
+async fn traveler_profiles_enforce_membership_visibility_and_phone_consent(pool: PgPool) {
+    let (owner, owner_cookie) = session(&pool, "owner@duke.edu").await;
+    let (viewer, viewer_cookie) = session(&pool, "viewer@duke.edu").await;
+    let (outsider, _) = session(&pool, "outsider@example.com").await;
+    let (hidden, _) = session(&pool, "hidden@duke.edu").await;
+    let (suspended, _) = session(&pool, "suspended@duke.edu").await;
+    let (unverified, _) = session(&pool, "unverified@duke.edu").await;
+    let created = data::create(&pool, owner, &input()).await.unwrap();
+    let flight = created.flight_id;
+    sqlx::query(
+        "UPDATE users SET display_name='<Alice>',phone_number='+1 919 555 0123' WHERE id=$1",
+    )
+    .bind(owner)
+    .execute(&pool)
+    .await
+    .unwrap();
+    for (id, name) in [
+        (outsider, "Outsider Secret"),
+        (hidden, "Hidden Secret"),
+        (suspended, "Suspended Secret"),
+        (unverified, "Unverified Secret"),
+    ] {
+        sqlx::query("UPDATE users SET display_name=$2,phone_number='+1 919 555 9999',share_phone=true WHERE id=$1").bind(id).bind(name).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO user_flights(user_id,flight_id) VALUES($1,$2)")
+            .bind(id)
+            .bind(flight)
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    sqlx::query("UPDATE users SET profile_visible=false WHERE id=$1")
+        .bind(hidden)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE users SET suspended_at=now() WHERE id=$1")
+        .bind(suspended)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE users SET email_verified_at=NULL WHERE id=$1")
+        .bind(unverified)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let service = app(pool.clone());
+    let path = format!("/flights/{flight}");
+    let mut before_join = get(&service, &path, Some(&viewer_cookie), None).await;
+    let html = before_join.take_string().await.unwrap();
+    assert!(!html.contains("Alice"));
+    let mut joined = post(&service, &format!("{path}/join"), &viewer_cookie, true, &[]).await;
+    let html = joined.take_string().await.unwrap();
+    assert!(html.contains("&#60;Alice&#62;"));
+    assert!(!html.contains("<Alice>"));
+    assert!(html.contains("Fellow student"));
+    assert!(!html.contains("919 555"));
+    for excluded in [
+        "Outsider Secret",
+        "Hidden Secret",
+        "Suspended Secret",
+        "Unverified Secret",
+        "owner@duke.edu",
+    ] {
+        assert!(!html.contains(excluded));
+    }
+    sqlx::query("UPDATE users SET share_phone=true WHERE id=$1")
+        .bind(owner)
+        .execute(&pool)
+        .await
+        .unwrap();
+    for target in [None, Some("div#flight-summary")] {
+        let mut response = get(&service, &path, Some(&viewer_cookie), target).await;
+        assert!(
+            response
+                .take_string()
+                .await
+                .unwrap()
+                .contains("+1 919 555 0123")
+        );
+    }
+    sqlx::query("UPDATE users SET share_phone=false WHERE id=$1")
+        .bind(owner)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let mut poll = get(
+        &service,
+        &format!("{path}/status"),
+        Some(&viewer_cookie),
+        Some("div#flight-summary"),
+    )
+    .await;
+    assert!(!poll.take_string().await.unwrap().contains("919 555"));
+    sqlx::query("UPDATE users SET share_phone=true,profile_visible=false WHERE id=$1")
+        .bind(owner)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        travelers::list(&pool, viewer, flight).await.unwrap().len(),
+        1
+    );
+    data::leave(&pool, viewer, flight).await.unwrap();
+    assert!(
+        travelers::list(&pool, viewer, flight)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        travelers::list(&pool, outsider, flight)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        travelers::list(&pool, suspended, flight)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    sqlx::query("UPDATE users SET profile_visible=true WHERE id=$1")
+        .bind(owner)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE flights SET deleted_at=now() WHERE id=$1")
+        .bind(flight)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let mut archived = get(&service, &path, Some(&owner_cookie), None).await;
+    let html = archived.take_string().await.unwrap();
+    assert!(!html.contains("Alice"));
+    assert!(!html.contains("919 555"));
 }

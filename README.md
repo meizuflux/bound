@@ -73,8 +73,9 @@ Verified students can find flights at `/flights`, add a missing flight after a
 review step, and manage their trips at `/flights/mine`. Search updates results
 in place with HTMX, while ordinary links and form submissions remain supported.
 Each shared flight has a permanent ID; departure time is a correctable detail,
-not part of duplicate matching. Only counts from the viewer's school are shown;
-student names and email addresses are not exposed to other travelers.
+not part of duplicate matching. Search results show only counts from the viewer's school;
+flight details show visible traveler names to verified same-school students who have
+joined that flight. Email addresses are never exposed to other travelers.
 
 The first version uses a curated US airport and airline catalog in
 `src/flights/catalog.rs`, not a live airline schedule feed. Times are explicitly
@@ -86,3 +87,15 @@ Travelers can explicitly confirm a flight revision or propose corrections after
 joining. Admin review applies approved changes atomically, rejecting stale edits.
 Joining alone never confirms the schedule. Duplicate merges preserve memberships
 and old links; flight deletion is an archive with restoration available.
+
+## Profiles
+
+After email verification, students can complete their profile or skip straight to
+their account. Name and phone number are optional; both can be edited from the
+account page at any time. Signup remains email and password only.
+
+Joining a flight makes your profile visible by default to verified students from
+your school who also joined it. An empty name appears as “Fellow student”. Profile
+settings allow hiding your profile across all flights. Phone numbers remain private
+unless you separately opt to share them with fellow travelers; hiding a profile
+also hides its phone. Phone numbers are self-reported, not verified.

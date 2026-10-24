@@ -48,7 +48,9 @@ Tailwind watches CSS separately.
 - `src/auth.rs` handles email/password sign-up, sign-in, verification, and sign-out.
   `/account` is a separate router/module protected by `auth::protect` and
   `auth::require_verified_user`; authenticated handlers read `CurrentUser` from
-  Depot. Sign-in and successful verification polling redirect to `/account`.
+  Depot. Sign-in redirects to `/account`. Successful verification opens the skippable
+  `/account/profile?onboarding=true` page until profile onboarding is saved or skipped,
+  then redirects to `/account`.
 - Passwords use salted Argon2id; opaque session tokens are stored as SHA-256
   hashes in Postgres and expire after 30 days. Cookies are HttpOnly and SameSite=Lax.
 - `APP_URL` is the exact application origin (default `http://localhost:8000`),
@@ -118,6 +120,21 @@ Tailwind watches CSS separately.
   never infer who made them. Do not log passwords or session/verification tokens.
   Activity history remains append-only through the application.
 
+## Profiles
+
+- `src/account/profile.rs` owns `/account/profile` and its POST save/skip routes;
+  `templates/partials/account/profile.html` is shared between onboarding and account settings.
+  Name and phone are optional; signup remains email/password only. Saving or skipping
+  records `profile_onboarding_done` without blocking account or flight access.
+- Migration 0013 adds profile fields. Profiles are visible by default; phone sharing
+  defaults to false and requires explicit opt-in. Hiding a profile also hides its phone.
+  Empty names display as “Fellow student”, never an email-derived fallback.
+- `src/flights/travelers.rs` enforces viewer membership, school, verification, suspension,
+  profile visibility, and active canonical flight checks in SQL. Only opted-in phone
+  numbers enter the view. Detail, poll, and mutation responses use the same projection.
+- Profile saves use optimistic revision checks and transaction-local audit attribution.
+  Audit events record that preferences changed, never name or phone values.
+
 ## Shared flights
 
 - `src/flights.rs` owns verified-student HTTP routes; typed views and focused
@@ -126,6 +143,7 @@ Tailwind watches CSS separately.
   `src/flights/catalog.rs` contains the explicitly supported airports/airlines.
 - `/flights` searches shared flights, `/flights/new` reviews and creates a flight,
   `/flights/mine` lists the current user's trips, and `/flights/{id}` shows details.
+  Search accepts a flight number or departure date independently; supplying both narrows results.
   Keep search fields outside the results swap target. Preserve normal forms and
   full GET pages alongside HTMX fragments. HTMX 4 `hx-disable` takes a selector
   such as `find button`, not a boolean.
@@ -140,8 +158,8 @@ Tailwind watches CSS separately.
 - User-flight memberships are unique. Joining is separate from confirming a
   particular revision. Corrections retain their base revision and are reviewed
   by admins; stale proposals must not overwrite newer details. Merges retain
-  history and redirect old links. Student views expose same-school counts, never
-  other users' emails or identities.
+  history and redirect old links. Student search views expose same-school counts. Flight details reveal visible profiles
+  only to verified, unsuspended same-school members of that flight; never expose emails.
 
 ## Local Postgres
 

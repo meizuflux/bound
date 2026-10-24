@@ -2,6 +2,7 @@
   <h1 class="text-3xl font-semibold tracking-tight">Your account</h1>
   <p class="mt-4 text-muted" role="status">{{ email }} · {{ school }}</p>
   <a href="/flights" class="mt-6 block rounded bg-ink px-4 py-3 text-center text-white">Find a flight</a>
+  <a href="/account/profile" class="mt-6 block underline underline-offset-4">Edit your profile and sharing preferences</a>
   {% if is_admin %}<a href="/admin" class="mt-6 block underline underline-offset-4">Open admin</a>{% endif %}
   {% include "partials/auth/signout.html" %}
 </section>

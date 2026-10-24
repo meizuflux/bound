@@ -1,0 +1,32 @@
+<section id="profile-panel" class="mx-auto w-full max-w-lg px-6 py-12">
+  <h1 class="text-3xl font-semibold tracking-tight">{% if onboarding %}Complete your profile{% else %}Edit your profile{% endif %}</h1>
+  <p class="mt-3 text-muted">Help fellow students recognize you on your flight. Everything here is optional, and you can change it later.</p>
+  {% if !error.is_empty() %}<p role="alert" class="mt-5 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">{{ error }} <a href="/account/profile" class="underline">Reload profile</a></p>{% endif %}
+  <form action="/account/profile" method="post" hx-post="/account/profile" hx-target="#profile-panel" hx-swap="outerHTML" hx-disable="find button" class="mt-6 space-y-5">
+    <input type="hidden" name="revision" value="{{ profile.profile_revision }}">
+    <input type="hidden" name="onboarding" value="{{ onboarding }}">
+    <div>
+      <label for="profile-name" class="block text-sm font-medium">Name <span class="text-muted">(optional)</span></label>
+      <input id="profile-name" name="display_name" autocomplete="name" value="{{ profile.display_name }}" maxlength="80" aria-describedby="name-help{% if !name_error.is_empty() %} name-error{% endif %}" {% if !name_error.is_empty() %}aria-invalid="true"{% endif %} class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5">
+      <p id="name-help" class="mt-1 text-xs text-muted">The name you want fellow travelers to see. Without a name, you appear as “Fellow student”.</p>
+      {% if !name_error.is_empty() %}<p id="name-error" role="alert" class="mt-2 text-sm text-red-900">{{ name_error }}</p>{% endif %}
+    </div>
+    <div>
+      <label for="profile-phone" class="block text-sm font-medium">Phone number <span class="text-muted">(optional)</span></label>
+      <input id="profile-phone" type="tel" name="phone_number" autocomplete="tel" value="{{ profile.phone_number }}" maxlength="32" placeholder="+1 919 555 0123" aria-describedby="phone-help{% if !phone_error.is_empty() %} phone-error{% endif %}" {% if !phone_error.is_empty() %}aria-invalid="true"{% endif %} class="mt-2 w-full rounded border border-ink/25 bg-white px-3 py-2.5">
+      <p id="phone-help" class="mt-1 text-xs text-muted">Include your country code. Private unless you choose to share below.</p>
+      {% if !phone_error.is_empty() %}<p id="phone-error" role="alert" class="mt-2 text-sm text-red-900">{{ phone_error }}</p>{% endif %}
+    </div>
+    <fieldset class="space-y-3 rounded-xl border border-ink/15 p-4">
+      <legend class="px-1 text-sm font-medium">On your flights</legend>
+      <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="profile_visible" {% if profile.profile_visible %}checked{% endif %} class="mt-1">Show me to verified students from my school who have joined the same flight.</label>
+      <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="share_phone" {% if profile.share_phone %}checked{% endif %} class="mt-1">Also share my phone number with those travelers.</label>
+      <p class="text-xs text-muted">Your email is never shown to fellow travelers. Hiding your profile also hides your phone number. These choices apply to all your flights.</p>
+    </fieldset>
+    <button class="w-full rounded bg-ink px-5 py-3 text-sm font-medium text-white disabled:opacity-50">{% if onboarding %}Save and continue{% else %}Save profile{% endif %}</button>
+    <p class="htmx-indicator text-sm text-muted" role="status">Saving your profile…</p>
+  </form>
+  {% if onboarding %}
+  <form action="/account/profile/skip" method="post" hx-post="/account/profile/skip" hx-target="#profile-panel" hx-swap="outerHTML" hx-disable="find button" class="mt-4 text-center"><button class="text-sm underline underline-offset-4 disabled:opacity-50">Skip for now</button></form>
+  {% else %}<a href="/account" class="mt-4 block text-center text-sm underline underline-offset-4">Back to account</a>{% endif %}
+</section>

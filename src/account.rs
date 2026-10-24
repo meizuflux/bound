@@ -1,3 +1,5 @@
+mod profile;
+
 use askama::Template;
 use salvo::prelude::*;
 
@@ -8,6 +10,7 @@ pub fn routes() -> Router {
         .hoop(auth::protect)
         .hoop(auth::require_verified_user)
         .get(show)
+        .push(profile::routes())
 }
 
 #[derive(Template)]

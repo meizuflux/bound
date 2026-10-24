@@ -451,7 +451,7 @@ async fn signup_immediately_verifies_the_only_email_and_preserves_session_rules(
         get(&service, "/auth/verification/status", Some(&first_cookie))
             .await
             .headers()["hx-redirect"],
-        "/account"
+        "/account/profile?onboarding=true"
     );
     assert_eq!(
         get(&service, "/auth/verification/status", Some(&other_cookie))
@@ -853,6 +853,10 @@ async fn migration_preserves_verified_identity_and_never_promotes_pending_addres
         include_str!("../../migrations/0007_flights.sql"),
         include_str!("../../migrations/0008_activity_attribution.sql"),
         include_str!("../../migrations/0009_admin_users.sql"),
+        include_str!("../../migrations/0010_flight_identity.sql"),
+        include_str!("../../migrations/0011_access_indexes.sql"),
+        include_str!("../../migrations/0012_flight_access_indexes.sql"),
+        include_str!("../../migrations/0013_profiles.sql"),
     ] {
         sqlx::raw_sql(migration).execute(&pool).await.unwrap();
     }

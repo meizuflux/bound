@@ -67,6 +67,7 @@ pub struct CurrentUser {
     pub email: String,
     pub is_admin: bool,
     email_verified: bool,
+    profile_onboarding_done: bool,
 }
 
 impl CurrentUser {
@@ -80,7 +81,7 @@ async fn current_user(req: &Request, depot: &Depot) -> Result<Option<CurrentUser
         return Ok(None);
     };
     sqlx::query_as(
-        "SELECT users.id, users.email, users.is_admin,
+        "SELECT users.id, users.email, users.is_admin, users.profile_onboarding_done,
          users.email_verified_at IS NOT NULL AS email_verified FROM sessions
          JOIN users ON users.id = sessions.user_id
          WHERE sessions.token_hash = $1 AND sessions.expires_at > now()
@@ -511,7 +512,15 @@ async fn show_verification(
     user: &CurrentUser,
 ) -> Result<(), StatusError> {
     if user.verified_school().is_some() {
-        redirect(req, res, "/account");
+        redirect(
+            req,
+            res,
+            if user.profile_onboarding_done {
+                "/account"
+            } else {
+                "/account/profile?onboarding=true"
+            },
+        );
         return Ok(());
     }
     if schools::from_email(&user.email).is_none() {
@@ -638,7 +647,15 @@ async fn verification_status(
         return Ok(());
     };
     if user.verified_school().is_some() {
-        redirect(req, res, "/account");
+        redirect(
+            req,
+            res,
+            if user.profile_onboarding_done {
+                "/account"
+            } else {
+                "/account/profile?onboarding=true"
+            },
+        );
     } else {
         let pending: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM email_verifications WHERE user_id = $1 AND expires_at > now())")
             .bind(user.id).fetch_one(depot.get_typed::<PgPool>().unwrap()).await.map_err(internal)?;

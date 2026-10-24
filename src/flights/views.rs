@@ -120,6 +120,8 @@ impl PageView for DetailPage {
 #[derive(Template)]
 #[template(path = "partials/flights/summary.html")]
 pub(super) struct Summary {
+    pub travelers: Vec<super::travelers::Traveler>,
+    pub more_travelers: bool,
     pub flight: data::Flight,
     pub corrections: Vec<data::Correction>,
     pub error: String,

@@ -16,5 +16,19 @@
     {% endif %}
     </div>
   </article>
+  {% if !flight.deleted %}
+  <section aria-label="Fellow travelers" class="mt-5 rounded-xl border border-ink/15 bg-white/70 p-5">
+    <h3 class="font-semibold">Fellow travelers</h3>
+    {% if flight.joined %}
+    <p class="mt-2 text-sm text-muted">Visible profiles from your school on this flight. Phone numbers appear only when shared by their owners.</p>
+    <ul class="mt-4 space-y-3">
+      {% for traveler in travelers %}<li class="border-t border-ink/10 pt-3"><p class="break-words font-medium">{{ traveler.name }}{% if traveler.is_you %} <span class="text-xs text-muted">(you)</span>{% endif %}</p>{% if !traveler.phone.is_empty() %}<p class="mt-1 text-sm">{{ traveler.phone }}</p>{% endif %}</li>{% endfor %}
+    </ul>
+    {% if travelers.is_empty() %}<p class="mt-3 text-sm text-muted">No visible profiles yet.</p>{% endif %}
+    {% if more_travelers %}<p class="mt-3 text-xs text-muted">Showing the first 100 visible travelers.</p>{% endif %}
+    {% else %}<p class="mt-2 text-sm text-muted">Add this flight to see fellow travelers from your school.</p>{% endif %}
+    <p class="mt-4 text-xs text-muted">Joining makes your profile visible according to your <a href="/account/profile" class="underline underline-offset-4">sharing preferences</a>. Names are visible by default; phone numbers are private unless you opt in.</p>
+  </section>
+  {% endif %}
   {% if !corrections.is_empty() %}<section aria-label="Schedule corrections" class="mt-5 rounded-xl border border-ink/15 p-5"><h3 class="font-semibold">Schedule review</h3><div class="mt-3 space-y-4">{% for correction in corrections %}<article class="border-t border-ink/10 pt-3"><p class="text-xs font-medium uppercase tracking-wide text-muted">{{ correction.field_label() }} · {{ correction.status }}</p><p class="mt-1 text-sm"><span class="text-muted">Listed:</span> {{ correction.current_value }} <span class="mx-1" aria-hidden="true">→</span> <span class="text-muted">Suggested:</span> {{ correction.proposed_value }}</p>{% if !correction.reason.is_empty() %}<p class="mt-2 break-words text-sm">{{ correction.reason }}</p>{% endif %}</article>{% endfor %}</div></section>{% endif %}
 </div>

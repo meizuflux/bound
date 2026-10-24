@@ -51,6 +51,7 @@ pub(super) struct Event {
 impl Event {
     pub fn label(&self) -> &str {
         match self.event_type.as_str() {
+            "profile_updated" => "Profile updated",
             "account_created" => "Account created",
             "account_suspended" => "Account suspended",
             "account_restored" => "Account restored",

@@ -3,7 +3,7 @@
 document.addEventListener("htmx:after:swap", (event) => {
   const original = event.detail?.ctx?.target;
   const panelIds = new Set([
-    "admin-panel", "flights-panel", "flight-create-panel", "flight-create-slot", "auth-panel",
+    "admin-panel", "flights-panel", "flight-create-panel", "flight-create-slot", "auth-panel", "profile-panel",
   ]);
   if (!original?.id || !panelIds.has(original.id)) return;
   const panel = document.getElementById(original.id);

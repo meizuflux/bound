@@ -1,5 +1,6 @@
 pub(crate) mod catalog;
 pub(crate) mod data;
+mod travelers;
 mod views;
 
 use salvo::prelude::*;
@@ -118,7 +119,7 @@ async fn search(
         .to_uppercase();
     let date = req.query::<String>("date").unwrap_or_default();
     let page = page(req)?;
-    let searched = !number.is_empty() && !date.is_empty();
+    let searched = !number.is_empty() || !date.is_empty();
     let (pool, user_id) = context(depot);
     let mut results = Results {
         flights: Vec::new(),
@@ -292,7 +293,14 @@ async fn summary(depot: &Depot, id: i64, notice: String) -> Result<Summary, Stat
         .map_err(internal)?
         .ok_or_else(StatusError::not_found)?;
     let corrections = data::corrections(pool, id).await.map_err(internal)?;
+    let mut travelers = travelers::list(pool, user_id, id)
+        .await
+        .map_err(|error| internal(error.into()))?;
+    let more_travelers = travelers.len() > 100;
+    travelers.truncate(100);
     Ok(Summary {
+        travelers,
+        more_travelers,
         flight,
         corrections,
         error: String::new(),

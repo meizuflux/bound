@@ -298,6 +298,14 @@ async fn enabling_activity_preserves_existing_accounts_without_inventing_history
         .execute(&pool)
         .await
         .unwrap();
+    for migration in [
+        include_str!("../../migrations/0010_flight_identity.sql"),
+        include_str!("../../migrations/0011_access_indexes.sql"),
+        include_str!("../../migrations/0012_flight_access_indexes.sql"),
+        include_str!("../../migrations/0013_profiles.sql"),
+    ] {
+        sqlx::raw_sql(migration).execute(&pool).await.unwrap();
+    }
     let service = app(pool.clone());
     let (_, cookie) = admin_session(&pool).await;
     let mut response = get(&service, "/admin/activity?q=existing", Some(&cookie), false).await;

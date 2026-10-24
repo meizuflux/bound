@@ -85,7 +85,9 @@ are community-submitted; check the airline for current travel information.
 
 Travelers can explicitly confirm a flight revision or propose corrections after
 joining. Admin review applies approved changes atomically, rejecting stale edits.
-Joining alone never confirms the schedule. Duplicate merges preserve memberships
+Creating a flight implicitly confirms its initial details, while the public count
+starts at zero and counts other travelers. Creators can confirm later revisions.
+Joining an existing flight alone never confirms the schedule. Duplicate merges preserve memberships
 and old links; flight deletion is an archive with restoration available.
 
 ## Profiles

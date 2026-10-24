@@ -76,7 +76,8 @@ async fn concurrent_creation_deduplicates_different_times_without_silent_join(po
         .unwrap();
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].attendees, 2);
-    assert!(!matches[0].confirmed);
+    assert_eq!(matches[0].confirmed, two.created);
+    assert_eq!(matches[0].confirmations, 0);
 }
 
 #[sqlx::test]
@@ -354,4 +355,50 @@ async fn archived_memberships_remain_visible_but_cannot_be_recreated(pool: PgPoo
     ));
     leave(&pool, student, id).await.unwrap();
     assert!(my_flights(&pool, student, 1).await.unwrap().is_empty());
+}
+
+#[sqlx::test]
+async fn creator_initial_confirmation_is_implicit_and_only_others_add_votes(pool: PgPool) {
+    let creator = user(&pool, "creator@duke.edu", false).await;
+    let traveler = user(&pool, "traveler@duke.edu", false).await;
+    let id = create(&pool, creator, &input()).await.unwrap().flight_id;
+    confirm(&pool, creator, id, 1).await.unwrap();
+    let initial = flight(&pool, creator, id).await.unwrap().unwrap();
+    assert!(initial.confirmed);
+    assert_eq!(initial.confirmations, 0);
+    join(&pool, traveler, id).await.unwrap();
+    assert!(
+        !flight(&pool, traveler, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .confirmed
+    );
+    confirm(&pool, traveler, id, 1).await.unwrap();
+    confirm(&pool, traveler, id, 1).await.unwrap();
+    // Old creator confirmations must not inflate counts on pre-existing flights.
+    sqlx::query("INSERT INTO flight_confirmations(user_id,flight_id,revision) VALUES($1,$2,1)")
+        .bind(creator)
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        flight(&pool, creator, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .confirmations,
+        1
+    );
+    sqlx::query("UPDATE flights SET revision=2 WHERE id=$1")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(!flight(&pool, creator, id).await.unwrap().unwrap().confirmed);
+    confirm(&pool, creator, id, 2).await.unwrap();
+    let revised = flight(&pool, creator, id).await.unwrap().unwrap();
+    assert!(revised.confirmed);
+    assert_eq!(revised.confirmations, 1);
 }

@@ -194,9 +194,10 @@ const SELECT_FLIGHTS: &str = "SELECT f.id, f.flight_number, f.departure_date::te
      WHERE uf.flight_id=f.id AND lower(split_part(u.email, '@', 2))=lower(split_part(viewer.email, '@', 2))
        AND u.email_verified_at IS NOT NULL AND u.suspended_at IS NULL) AS attendees,
     EXISTS(SELECT 1 FROM user_flights uf WHERE uf.flight_id=f.id AND uf.user_id=$1) AS joined,
-    EXISTS(SELECT 1 FROM flight_confirmations fc WHERE fc.flight_id=f.id AND fc.user_id=$1 AND fc.revision=f.revision) AS confirmed,
+    (COALESCE(f.created_by=$1 AND f.revision=1, false) OR EXISTS(SELECT 1 FROM flight_confirmations fc WHERE fc.flight_id=f.id AND fc.user_id=$1 AND fc.revision=f.revision)) AS confirmed,
     (SELECT count(*) FROM flight_confirmations fc JOIN users u ON u.id=fc.user_id
      WHERE fc.flight_id=f.id AND fc.revision=f.revision
+       AND NOT (f.revision=1 AND fc.user_id IS NOT DISTINCT FROM f.created_by)
        AND lower(split_part(u.email, '@', 2))=lower(split_part(viewer.email, '@', 2))
        AND u.email_verified_at IS NOT NULL AND u.suspended_at IS NULL) AS confirmations,
     (SELECT count(*) FROM flight_corrections c WHERE c.flight_id=f.id AND c.status='pending') AS pending_corrections,
@@ -315,6 +316,7 @@ async fn authorize(conn: &mut PgConnection, actor: i64, admin: bool) -> Result<(
 
 #[derive(sqlx::FromRow)]
 struct LockedFlight {
+    created_by: Option<i64>,
     flight_number: String,
     departure_date: String,
     departure_time: String,
@@ -357,7 +359,7 @@ impl LockedFlight {
 }
 
 async fn locked(conn: &mut PgConnection, id: i64) -> Result<LockedFlight, DomainError> {
-    sqlx::query_as("SELECT flight_number, departure_date::text AS departure_date, to_char(departure_time,'HH24:MI') AS departure_time,origin,destination,instance,revision,deleted_at IS NOT NULL AS deleted,merged_into FROM flights WHERE id=$1 FOR UPDATE")
+    sqlx::query_as("SELECT created_by, flight_number, departure_date::text AS departure_date, to_char(departure_time,'HH24:MI') AS departure_time,origin,destination,instance,revision,deleted_at IS NOT NULL AS deleted,merged_into FROM flights WHERE id=$1 FOR UPDATE")
         .bind(id).fetch_optional(conn).await?.ok_or(DomainError::NotFound)
 }
 
@@ -498,6 +500,12 @@ pub(crate) async fn confirm(
     current.available()?;
     current.at_revision(revision)?;
     require_membership(&mut tx, actor, id).await?;
+    // Creating the original details is already an implicit confirmation. Keep
+    // repeat/direct requests idempotent without adding self-confirmation votes.
+    if current.revision == 1 && current.created_by == Some(actor) {
+        tx.commit().await?;
+        return Ok(());
+    }
     let result=sqlx::query("INSERT INTO flight_confirmations(user_id,flight_id,revision) VALUES($1,$2,$3) ON CONFLICT DO NOTHING").bind(actor).bind(id).bind(revision).execute(&mut *tx).await?;
     if result.rows_affected() > 0 {
         crate::audit::record(

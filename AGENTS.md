@@ -155,8 +155,9 @@ Tailwind watches CSS separately.
 - Derive UTC from an airport's IANA time zone; reject nonexistent or ambiguous
   local times rather than assuming an offset. This is a curated manual catalog,
   not a live airline feed. Do not label community submissions as airline verified.
-- User-flight memberships are unique. Joining is separate from confirming a
-  particular revision. Corrections retain their base revision and are reviewed
+- User-flight memberships are unique. Joining an existing flight is separate from confirming a
+  particular revision. Creating a flight implicitly confirms revision 1 for its creator,
+  without adding to the public confirmation count. Creators can confirm later revisions. Corrections retain their base revision and are reviewed
   by admins; stale proposals must not overwrite newer details. Merges retain
   history and redirect old links. Student search views expose same-school counts. Flight details reveal visible profiles
   only to verified, unsuspended same-school members of that flight; never expose emails.

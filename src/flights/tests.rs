@@ -360,20 +360,24 @@ async fn correction_errors_preserve_escaped_values_and_polling_stops_after_revie
 }
 
 #[sqlx::test]
-async fn confirmation_is_explicit_and_mutations_return_small_fragments(pool: PgPool) {
+async fn creation_implicitly_confirms_and_mutations_return_small_fragments(pool: PgPool) {
     let (user_id, cookie) = session(&pool, "student@duke.edu").await;
     let id = data::create(&pool, user_id, &input())
         .await
         .unwrap()
         .flight_id;
     assert!(
-        !data::flight(&pool, user_id, id)
+        data::flight(&pool, user_id, id)
             .await
             .unwrap()
             .unwrap()
             .confirmed
     );
     let service = app(pool.clone());
+    let mut detail_response = get(&service, &format!("/flights/{id}"), Some(&cookie), None).await;
+    let detail_html = detail_response.take_string().await.unwrap();
+    assert!(!detail_html.contains("Confirm these details"));
+    assert!(detail_html.contains("You confirmed this version."));
     let mut response = post(
         &service,
         &format!("/flights/{id}/confirm"),
@@ -393,6 +397,21 @@ async fn confirmation_is_explicit_and_mutations_return_small_fragments(pool: PgP
             .unwrap()
             .confirmed
     );
+    assert_eq!(
+        data::flight(&pool, user_id, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .confirmations,
+        0
+    );
+    let votes: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM flight_confirmations WHERE flight_id=$1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(votes, 0);
     let mut response = post(
         &service,
         &format!("/flights/{id}/confirm"),
